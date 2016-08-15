@@ -67,7 +67,7 @@ def cuffmerge_cuffdiff_script( args ):
     assembly_list = ""
     bamfiles = ""
     bamlist = {}
-    labels = []
+    labels = set()
 
     # build necessary strings for script
     with open(args.configfile, 'r') as fh:
@@ -79,7 +79,7 @@ def cuffmerge_cuffdiff_script( args ):
                 bamlist[line[1]] = []
 
             bamlist[line[1]].append(line[0] + ".HISAT2.bam")
-            labels.append( line[1] )
+            labels.add( line[1] )
 
     # build bam string
     for l in labels:
@@ -87,7 +87,7 @@ def cuffmerge_cuffdiff_script( args ):
 
     script.append("ls {} > assembly_list.txt\n".format(assembly_list) )
     script.append("cuffmerge -p {threads} -g {gff} assembly_list.txt\n".format(threads=args.threads, gff=args.gffref) )
-    script.append("cuffdiff -p {threads} -o {expprefix}.cuffdiff merged_asm/merged.gtf -max-bundle-frags 50000000 {bamfiles} -L {labels}\n".format(threads=args.threads, expprefix=args.expprefix, bamfiles=bamfiles, labels=",".join(labels) ) )
+    script.append("cuffdiff -p {threads} -o {expprefix}.cuffdiff merged_asm/merged.gtf -max-bundle-frags 50000000 {bamfiles} -L {labels}\n".format(threads=args.threads, expprefix=args.expprefix, bamfiles=bamfiles, labels=",".join(sorted(labels)) ) )
 
     return script
 
