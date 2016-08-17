@@ -87,7 +87,8 @@ def cuffmerge_cuffdiff_script( args ):
 
     script.append("ls {} > assembly_list.txt\n".format(assembly_list) )
     script.append("cuffmerge -p {threads} -g {gff} assembly_list.txt\n".format(threads=args.threads, gff=args.gffref) )
-    script.append("cuffdiff -p {threads} -o {expprefix}.cuffdiff merged_asm/merged.gtf -max-bundle-frags 50000000 {bamfiles} -L {labels}\n".format(threads=args.threads, expprefix=args.expprefix, bamfiles=bamfiles, labels=",".join(sorted(labels)) ) )
+    script.append("cuffdiff -p {threads} {multiread} -o {expprefix}.cuffdiff merged_asm/merged.gtf -max-bundle-frags 50000000 {bamfiles} -L {labels}\n".format(
+      threads=args.threads, multiread=args.multiread, expprefix=args.expprefix, bamfiles=bamfiles, labels=",".join(sorted(labels)) ) )
 
     return script
 
@@ -147,6 +148,7 @@ def main( prog_name, argv ):
     parser.add_argument('--max-intronlen', dest='max_intronlen', metavar='MAX_INTRONLEN', default=50000, type=int, help='maximum intron length to use in HISAT2')
     parser.add_argument('-m','--memory', dest='memory', metavar='MEM', default=3000, type=int, help='megabytes to allocate in jobfile per thread')
     parser.add_argument('--single', dest='single', default=False, action='store_true', help='flag to indicate single end reads are used')
+    parser.add_argument('-u','--multi-read-correct', dest='multiread', default='', const='--multi-read-correct', action='store_const', help='flag to indicate use of multiple mapped reads in cuffdiff')
     args = parser.parse_args(argv)
 
     ## INITIALIZE
