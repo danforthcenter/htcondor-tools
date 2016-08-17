@@ -87,7 +87,7 @@ def cuffmerge_cuffdiff_script( args ):
 
     script.append("ls {} > assembly_list.txt\n".format(assembly_list) )
     script.append("cuffmerge -p {threads} -g {gff} assembly_list.txt\n".format(threads=args.threads, gff=args.gffref) )
-    script.append("cuffdiff -p {threads} {multiread} -o {expprefix}.cuffdiff merged_asm/merged.gtf -max-bundle-frags 50000000 {bamfiles} -L {labels}\n".format(
+    script.append("cuffdiff -p {threads} {multiread} -o {expprefix}.cuffdiff merged_asm/merged.gtf --max-bundle-frags 50000000 {bamfiles} -L {labels}\n".format(
       threads=args.threads, multiread=args.multiread, expprefix=args.expprefix, bamfiles=bamfiles, labels=",".join(sorted(labels)) ) )
 
     return script
