@@ -87,6 +87,8 @@ def main():
                 # print("Date: " + args.date + ", Group: " + group + ", Usage: " + usage)
                 db.execute("INSERT INTO `group_stats` VALUES ({0}, {1}, {2})".format(args.date, group, usage))
 
+    db.close()
+    connect.close()
 ###########################################
 
 
