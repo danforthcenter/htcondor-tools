@@ -77,7 +77,7 @@ def main():
                 else:
                     user = group_user
                 # print("Date: " + args.date + ", User: " + user + ", Group: " + group + ', Usage: ' + usage)
-                db.execute("INSERT INTO `user_stats` VALUES ({0}, {1}, {2}, {3})".format(args.date, user, group, usage))
+                db.execute("INSERT INTO `user_stats` VALUES ('{0}', '{1}', '{2}', {3})".format(args.date, user, group, usage))
             elif "group" in row:
                 # Then this is a group total row
                 # Remove quotes
@@ -85,7 +85,7 @@ def main():
                 # Split the group and usage
                 group, usage = row.split(" ")
                 # print("Date: " + args.date + ", Group: " + group + ", Usage: " + usage)
-                db.execute("INSERT INTO `group_stats` VALUES ({0}, {1}, {2})".format(args.date, group, usage))
+                db.execute("INSERT INTO `group_stats` VALUES ('{0}', '{1}', {2})".format(args.date, group, usage))
 
     db.close()
     connect.close()
