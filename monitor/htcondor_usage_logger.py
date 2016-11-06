@@ -87,6 +87,7 @@ def main():
                 # print("Date: " + args.date + ", Group: " + group + ", Usage: " + usage)
                 db.execute("INSERT INTO group_stats VALUES (?, ?, ?)", (args.date, group, usage))
 
+    connect.commit()
     db.close()
     connect.close()
 ###########################################
