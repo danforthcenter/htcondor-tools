@@ -42,9 +42,8 @@ def main():
     # Get options
     args = options()
 
-    ps = Popen(['condor_userprio', "-allusers"], stdout=PIPE)
+    ps = Popen(['condor_userprio', "-allusers", "-autoformat:h", "Name", "WeightedAccumulatedUsage"], stdout=PIPE)
     report = ps.communicate()
-    rc = ps.returncode()
     print(report)
 ###########################################
 
