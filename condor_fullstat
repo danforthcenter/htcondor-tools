@@ -1,0 +1,95 @@
+#!/usr/bin/env python
+from subprocess import Popen, PIPE
+from tabulate import tabulate
+from datetime import datetime, timedelta
+
+
+# Main
+###########################################
+def main():
+    """Main program.
+
+    Args:
+
+    Returns:
+
+    Raises:
+
+    """
+
+    # condor_q parameters
+    cmd = ["condor_q", "-autoformat:t", "ClusterId", "ProcId", "Owner", "RemoteHost", "RequestCpus", "RequestMemory",
+           "MemoryUsage", "RequestDisk", "DiskUsage", "JobStartDate", "ServerTime"]
+
+    # Output table headers
+    headers = ["ID", "Owner", "Host", "CPUs", "Memory (GB)", "Memory (%)", "Disk (GB)", "Disk (%)", "Run Time"]
+
+    # Run condor_q
+    ps = Popen(cmd, stdout=PIPE)
+    stdout = ps.communicate()
+
+    # Process condor_q output
+    raw = stdout[0]
+    # Split output into rows
+    table = raw.split("\n")
+
+    out_table = []
+    # For each row in the output
+    for row in table:
+        # Remove the newline if any
+        row = row.rstrip("\n")
+        # Split up the columns on tab characters
+        cols = row.split("\t")
+        # Ignore blank lines and jobs that have no host (queued jobs)
+        if len(cols) > 1 and cols[3] != 'undefined':
+            # If any of the request/usage values are undefined, set them to zero
+            for i, value in enumerate(cols):
+                if value == 'undefined':
+                    cols[i] = 0
+            # Cluster ID + Job ID
+            id = cols[0] + "." + cols[1]
+            # Username
+            owner = cols[2]
+            # Host/slot
+            host = cols[3].replace("slot1@", "")
+
+            # CPUs requested
+            request_cpus = int(cols[4])
+
+            # Memory
+            # Requested RAM in GB
+            request_mem = int(cols[5]) / float(1024)
+            # Actual current RAM usage in GB
+            mem_usage = int(cols[6]) / float(1024)
+            # Percentage over/under RAM usage
+            mem_percent = (mem_usage / request_mem) * 100
+
+            # Disk
+            # Requested disk (usually scratch) in GB
+            request_disk = int(cols[7]) / float(1024**2)
+            # Actual disk usage in GB
+            disk_usage = int(cols[8]) / float(1024**2)
+            # Percentage over/under disk usage
+            disk_percent = (disk_usage / request_disk) * 100
+
+            # Runtime
+            # Job start date in epoch seconds
+            job_start = int(cols[9])
+            # Current time in epoch seconds
+            server_time = int(cols[10])
+            # Calculate elapsed time
+            td = timedelta(seconds=server_time - job_start)
+            # Converted timedelta object to a datetime object
+            d = datetime(1, 1, 1) + td
+            # Format the datetime as a string of days, hours, minutes, and seconds
+            duration = "{0:02d}:{1:02d}:{2:02d}:{3:02d}".format(d.day-1, d.hour, d.minute, d.second)
+
+            # Append the new row to the output table
+            out_table.append([id, owner, host, request_cpus, "{0:.1f}".format(mem_usage), "{0:.1f}".format(mem_percent),
+                              "{0:.1f}".format(disk_usage), "{0:.1f}".format(disk_percent), duration])
+
+    # Use tabulate to print out a "pretty" table
+    print(tabulate(out_table, headers=headers))
+
+if __name__ == '__main__':
+    main()
