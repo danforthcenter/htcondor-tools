@@ -21,8 +21,31 @@ def main():
     cmd = ["condor_q", "-autoformat:t", "ClusterId", "ProcId", "Owner", "RemoteHost", "RequestCpus", "RequestMemory",
            "MemoryUsage", "RequestDisk", "DiskUsage", "JobStartDate", "ServerTime"]
 
+    machine = ["condor_status", "-autoformat:t", "JobId", "LoadAvg"]
+
     # Output table headers
-    headers = ["ID", "Owner", "Host", "CPUs", "Memory (GB)", "Memory (%)", "Disk (GB)", "Disk (%)", "Run Time"]
+    headers = ["ID", "Owner", "Host", "CPUs", "CPUs (%)", "Memory (GB)", "Memory (%)", "Disk (GB)", "Disk (%)", "Run Time"]
+
+    # Run condor_status to get load averages per job
+    loads = {}
+    ps = Popen(machine, stdout=PIPE)
+    stdout = ps.communicate()
+
+    # Process condor_q output
+    raw = stdout[0]
+    table = raw.split("\n")
+
+    # For each row in the output
+    for row in table:
+        # Remove the newline if any
+        row = row.rstrip("\n")
+        # Split up the columns on tab characters
+        cols = row.split("\t")
+        # Ignore blank lines and machines that have no job
+        if len(cols) > 1 and cols[0] != 'undefined':
+            job_id = cols[0]
+            loadave = cols[1]
+            loads[job_id] = loadave
 
     # Run condor_q
     ps = Popen(cmd, stdout=PIPE)
@@ -53,8 +76,14 @@ def main():
             # Host/slot
             host = cols[3].replace("slot1@", "")
 
+            # CPU
             # CPUs requested
             request_cpus = int(cols[4])
+            # Load average
+            loadave = 0
+            if id in loads:
+                loadave = loads[id]
+            cpu_percent = loadave / request_cpus
 
             # Memory
             # Requested RAM in GB
@@ -85,8 +114,9 @@ def main():
             duration = "{0:02d}:{1:02d}:{2:02d}:{3:02d}".format(d.day-1, d.hour, d.minute, d.second)
 
             # Append the new row to the output table
-            out_table.append([id, owner, host, request_cpus, "{0:.1f}".format(mem_usage), "{0:.1f}".format(mem_percent),
-                              "{0:.1f}".format(disk_usage), "{0:.1f}".format(disk_percent), duration])
+            out_table.append([id, owner, host, request_cpus, "{0:.1f}".format(cpu_percent),"{0:.1f}".format(mem_usage),
+                              "{0:.1f}".format(mem_percent), "{0:.1f}".format(disk_usage),
+                              "{0:.1f}".format(disk_percent), duration])
 
     # Use tabulate to print out a "pretty" table
     print(tabulate(out_table, headers=headers))
