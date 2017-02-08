@@ -82,8 +82,8 @@ def main():
             # Load average
             loadave = 0
             if id in loads:
-                loadave = loads[id]
-            cpu_percent = loadave / request_cpus
+                loadave = float(loads[id])
+            cpu_percent = loadave / int(request_cpus)
 
             # Memory
             # Requested RAM in GB
