@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import sys
 from subprocess import Popen, PIPE
 from tabulate import tabulate
 from datetime import datetime, timedelta
@@ -118,8 +119,24 @@ def main():
                               "{0:.1f}".format(mem_percent), "{0:.1f}".format(disk_usage),
                               "{0:.1f}".format(disk_percent), duration])
 
-    # Use tabulate to print out a "pretty" table
-    print(tabulate(out_table, headers=headers))
+    # If this is a real terminal, colorize output
+    if sys.stdout.isatty():
+        # Import ansicolors
+        from colors import red
+        # Check the usage percents for each job
+        for i, row in enumerate(out_table):
+            # If CPU usage is > 100% color red
+            if float(row[4]) > 100:
+                out_table[i][4] = red(row[4])
+            # If memory usage is > 100% color red
+            if float(row[6]) > 100:
+                out_table[i][6] = red(row[6])
+            # If disk usage is > 100% color red
+            if float(row[8]) > 100:
+                out_table[i][8] = red(row[8])
+    else:
+        # Use tabulate to print out a "pretty" table
+        print(tabulate(out_table, headers=headers))
 
 if __name__ == '__main__':
     main()
