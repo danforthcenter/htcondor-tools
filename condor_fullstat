@@ -134,6 +134,9 @@ def main():
 
             # Get the command name, excluding path
             job = os.path.basename(cols[11])
+            # Rename interactive jobs
+            if job == "sleep":
+                job = "(interactive)"
 
             # Append the new row to the output table
             out_table.append([job_id, owner, host, request_cpus, "{0:.1f}".format(cpu_percent),
