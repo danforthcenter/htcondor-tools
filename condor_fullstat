@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import sys
+import os
 from subprocess import Popen, PIPE
 from tabulate import tabulate
 from datetime import datetime, timedelta
@@ -36,13 +37,13 @@ def main():
 
     # condor_q parameters
     cmd = ["condor_q", "-autoformat:t", "ClusterId", "ProcId", "Owner", "RemoteHost", "RequestCpus", "RequestMemory",
-           "MemoryUsage", "RequestDisk", "DiskUsage", "JobStartDate", "ServerTime"]
+           "MemoryUsage", "RequestDisk", "DiskUsage", "JobStartDate", "ServerTime", "Cmd"]
 
     machine = ["condor_status", "-autoformat:t", "JobId", "LoadAvg"]
 
     # Output table headers
     headers = ["ID", "Owner", "Host", "CPUs", "CPUs (%)", "Memory (GB)", "Memory (%)", "Disk (GB)", "Disk (%)",
-               "Run Time"]
+               "Run Time", "Cmd"]
 
     # Run condor_status to get load averages per job
     loads = {}
@@ -131,10 +132,13 @@ def main():
             # Format the datetime as a string of days, hours, minutes, and seconds
             duration = "{0:02d}:{1:02d}:{2:02d}:{3:02d}".format(d.day-1, d.hour, d.minute, d.second)
 
+            # Get the command name, excluding path
+            job = os.path.basename(cols[11])
+
             # Append the new row to the output table
             out_table.append([job_id, owner, host, request_cpus, "{0:.1f}".format(cpu_percent),
                               "{0:.1f}".format(mem_usage), "{0:.1f}".format(mem_percent), "{0:.1f}".format(disk_usage),
-                              "{0:.1f}".format(disk_percent), duration])
+                              "{0:.1f}".format(disk_percent), duration, job])
 
     if args.tab:
         print("\t".join(map(str, headers)))
