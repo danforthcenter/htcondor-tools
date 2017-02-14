@@ -181,7 +181,7 @@ def assign_color(percent):
     elif percent >= 200:
         return color(str(percent), fg=1)
     else:
-        return color(str(percent), fg=10)
+        return color(str(percent), fg=2)
 
 if __name__ == '__main__':
     main()
