@@ -153,14 +153,14 @@ def main():
             # Import ansicolors
             # from colors import red
             # Check the usage percents for each job
-            # Colorize output
-            # CPU
-            out_table[i][4] = assign_color(float(row[4]))
-            # Memory
-            out_table[i][6] = assign_color(float(row[6]))
-            # Disk
-            out_table[i][8] = assign_color(float(row[8]))
-            # for i, row in enumerate(out_table):
+            for i, row in enumerate(out_table):
+                # Colorize output
+                # CPU
+                out_table[i][4] = assign_color(float(row[4]))
+                # Memory
+                out_table[i][6] = assign_color(float(row[6]))
+                # Disk
+                out_table[i][8] = assign_color(float(row[8]))
             #     # If CPU usage is > 100% color red
             #     if float(row[4]) > 100:
             #         out_table[i][4] = red(row[4])
