@@ -180,6 +180,8 @@ def assign_color(percent):
         return color(str(percent), fg=9)
     elif percent >= 200:
         return color(str(percent), fg=1)
+    elif percent <= 50:
+        return color(str(percent), fg=10)
     else:
         return str(percent)
 
