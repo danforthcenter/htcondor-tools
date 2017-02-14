@@ -151,20 +151,37 @@ def main():
         # If this is a real terminal, colorize output
         if sys.stdout.isatty():
             # Import ansicolors
-            from colors import red
+            # from colors import red
             # Check the usage percents for each job
-            for i, row in enumerate(out_table):
-                # If CPU usage is > 100% color red
-                if float(row[4]) > 100:
-                    out_table[i][4] = red(row[4])
-                # If memory usage is > 100% color red
-                if float(row[6]) > 100:
-                    out_table[i][6] = red(row[6])
-                # If disk usage is > 100% color red
-                if float(row[8]) > 100:
-                    out_table[i][8] = red(row[8])
+            # Colorize output
+            # CPU
+            out_table[i][4] = assign_color(float(row[4]))
+            # Memory
+            out_table[i][6] = assign_color(float(row[6]))
+            # Disk
+            out_table[i][8] = assign_color(float(row[8]))
+            # for i, row in enumerate(out_table):
+            #     # If CPU usage is > 100% color red
+            #     if float(row[4]) > 100:
+            #         out_table[i][4] = red(row[4])
+            #     # If memory usage is > 100% color red
+            #     if float(row[6]) > 100:
+            #         out_table[i][6] = red(row[6])
+            #     # If disk usage is > 100% color red
+            #     if float(row[8]) > 100:
+            #         out_table[i][8] = red(row[8])
         # Use tabulate to print out a "pretty" table
         print(tabulate(out_table, headers=headers))
+
+
+def assign_color(percent):
+    from colors import color
+    if 150 < percent < 200:
+        return color(str(percent), fg=9)
+    elif percent >= 200:
+        return color(str(percent), fg=1)
+    else:
+        return color(str(percent), fg=10)
 
 if __name__ == '__main__':
     main()
