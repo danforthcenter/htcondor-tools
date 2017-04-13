@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS `jobs` (
     `id` INT(9) UNSIGNED AUTO_INCREMENT NOT NULL,
     `cluster` INT(9) NOT NULL,
     `process` INT(9) NOT NULL,
-    `user` VARCHAR(30) NOT NULL,
-    `group` VARCHAR(30) NOT NULL,
+    `username` VARCHAR(30) NOT NULL,
+    `groupname` VARCHAR(30) NOT NULL,
     `start_date` TIMESTAMP NOT NULL,
     `cpu` INT(4) NOT NULL,
     `cpu_unit` CHAR(5) DEFAULT "count",
@@ -40,7 +40,7 @@ INSERT INTO `units` (`unit_id`, `unit_name`, `url`) VALUES ("KiB", "kibibyte", "
 -- Stores a jobs current usage statistics
 CREATE TABLE IF NOT EXISTS `job_stats` (
     `id` INT(9) UNSIGNED NOT NULL,
-    `timestamp` TIMESTAMP NOT NULL,
+    `datetime` TIMESTAMP NOT NULL,
     `cpu_load` FLOAT(3, 2) NOT NULL,
     `memory_usage` INT(6) NOT NULL,
     `disk_usage` INT(6) NOT NULL,
