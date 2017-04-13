@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS `jobs` (
     `cpu` INT(4) NOT NULL,
     `cpu_unit` CHAR(5) DEFAULT "count",
     `memory` INT(6) NOT NULL,
-    `memory_unit` CHAR(3) DEFAULT "MiB"
+    `memory_unit` CHAR(3) DEFAULT "MiB",
     `disk` INT(6) NOT NULL,
     `disk_unit` CHAR(3) DEFAULT "KiB",
     `host` VARCHAR(30) NOT NULL,
