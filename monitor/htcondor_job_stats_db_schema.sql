@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS `jobs` (
 );
 -- Create indexes
 CREATE INDEX index_jobs ON jobs(cluster, process);
-CREATE INDEX index_users ON jobs(user);
-CREATE INDEX index_groups ON jobs(group);
+CREATE INDEX index_users ON jobs(username);
+CREATE INDEX index_groups ON jobs(groupname);
 
 -- units table
 -- Stores information about the computing resource units of jobs and machines
