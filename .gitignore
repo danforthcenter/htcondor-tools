@@ -92,4 +92,4 @@ ENV/
 .idea/
 
 # Database configuration files
-.config
+*.config
