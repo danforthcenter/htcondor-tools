@@ -67,6 +67,7 @@ def main():
 
     # Process condor_q output
     raw = stdout[0]
+    raw = raw.decode()
     table = raw.split("\n")
 
     # For each row in the output
@@ -87,6 +88,7 @@ def main():
 
     # Process condor_q output
     raw = stdout[0]
+    raw = raw.decode()
     # Split output into rows
     table = raw.split("\n")
 
@@ -104,9 +106,9 @@ def main():
                 if value == "undefined":
                     cols[i] = 0
             # Cluster ID
-            stats["cluster"] = cols[0]
+            stats["cluster"] = int(cols[0])
             # Process/Job ID
-            stats["process"] = cols[1]
+            stats["process"] = int(cols[1])
             # Job ID
             job_id = str(stats["cluster"]) + "." + str(stats["process"])
             # Username
@@ -163,25 +165,25 @@ def main():
                 stats["transfer"] = 0
 
             # Is this job already in the database?
-            c.execute("""SELECT id FROM jobs WHERE cluster = %d AND process = %d""",
+            c.execute("""SELECT id FROM jobs WHERE cluster = %s AND process = %s""",
                       (stats["cluster"], stats["process"]))
             stats["id"] = c.fetchone()
             # This is a new job
             if stats["id"] is None:
                 c.execute(
                     """INSERT INTO jobs (cluster, process, username, groupname, start_date, cpu, memory, disk, host,
-                    universe, exe, transfer) VALUES (%d, %d, %s, %s, %s, %d, %d, %d, %s, %s, %s, %d)""",
+                    universe, exe, transfer) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (stats["cluster"], stats["process"], stats["username"], stats["groupname"], stats["start_date"],
                      stats["cpu"], stats["memory"], stats["disk"], stats["host"], stats["universe"], stats["exe"],
                      stats["transfer"]))
-                c.execute("""SELECT id FROM jobs WHERE cluster = %d AND process = %d""",
+                c.execute("""SELECT id FROM jobs WHERE cluster = %s AND process = %s""",
                           (stats["cluster"], stats["process"]))
                 stats["id"] = c.fetchone()
 
             # Insert the job statistics
             c.execute(
-                """INSERT INTO job_stats (id, datetime, cpu_load, memory_usage, disk_usage) VALUES (%d, %s, %.2f,
-                %d, %d)""", (stats["id"]["id"], stats["datetime"], stats["cpu_load"], stats["memory_usage"],
+                """INSERT INTO job_stats (id, datetime, cpu_load, memory_usage, disk_usage) VALUES (%s, %s, %s,
+                %s, %s)""", (stats["id"]["id"], stats["datetime"], stats["cpu_load"], stats["memory_usage"],
                              stats["disk_usage"]))
 
 
