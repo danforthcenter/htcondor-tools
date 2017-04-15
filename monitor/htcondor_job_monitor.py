@@ -149,12 +149,12 @@ def main():
                 stats["exe"] = "(interactive)"
 
             # Get the job universe
-            if cols[12] in uni:
+            if int(cols[12]) in uni:
                 # If this is not a Docker job, look up the universe
-                if cols[13] == "undefined":
-                    stats["universe"] = uni[int(cols[12])]
-                else:
+                if cols[13] == "true":
                     stats["universe"] = "docker"
+                else:
+                    stats["universe"] = uni[int(cols[12])]
             else:
                 stats["universe"] = "unknown:" + str(cols[12])
 
@@ -167,7 +167,7 @@ def main():
             # Groupname
             stats["groupname"] = cols[15].replace("group_", "")
 
-                # Is this job already in the database?
+            # Is this job already in the database?
             c.execute("""SELECT id FROM jobs WHERE cluster = %s AND process = %s""",
                       (stats["cluster"], stats["process"]))
             stats["id"] = c.fetchone()
