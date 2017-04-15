@@ -56,7 +56,7 @@ def main():
     # condor_q parameters
     cmd = ["condor_q", "-autoformat:t", "ClusterId", "ProcId", "Owner", "RemoteHost", "RequestCpus", "RequestMemory",
            "MemoryUsage", "RequestDisk", "DiskUsage", "JobStartDate", "ServerTime", "Cmd", "JobUniverse", "WantDocker",
-           "ShouldTransferFiles"]
+           "ShouldTransferFiles", "AcctGroup"]
 
     machine = ["condor_status", "-autoformat:t", "JobId", "LoadAvg"]
 
@@ -164,7 +164,10 @@ def main():
             else:
                 stats["transfer"] = 0
 
-            # Is this job already in the database?
+            # Groupname
+            stats["groupname"] = cols[15].replace("group_", "")
+
+                # Is this job already in the database?
             c.execute("""SELECT id FROM jobs WHERE cluster = %s AND process = %s""",
                       (stats["cluster"], stats["process"]))
             stats["id"] = c.fetchone()
