@@ -42,8 +42,7 @@ def main():
     machine = ["condor_status", "-autoformat:t", "JobId", "LoadAvg"]
 
     # Output table headers
-    headers = ["Cluster", "Process", "Owner", "Host", "CPUs", "CPUs (%)", "Memory (GB)", "Memory (%)", "Disk (GB)",
-               "Disk (%)", "Run Time", "Cmd"]
+    headers = ["Cluster", "Process", "Owner", "Host", "CPUs", "Memory (GB)", "Disk (GB)", "Run Time", "Cmd"]
 
     # Run condor_status to get load averages per job
     loads = {}
@@ -104,7 +103,7 @@ def main():
             loadave = 0
             if job_id in loads:
                 loadave = float(loads[job_id])
-            cpu_percent = (loadave / int(request_cpus)) * 100
+            # cpu_percent = (loadave / int(request_cpus)) * 100
 
             # Memory
             # Requested RAM in GB
@@ -115,7 +114,7 @@ def main():
             # Actual current RAM usage in GB
             mem_usage = int(cols[6]) / float(1024)
             # Percentage over/under RAM usage
-            mem_percent = (mem_usage / request_mem) * 100
+            # mem_percent = (mem_usage / request_mem) * 100
 
             # Disk
             # Requested disk (usually scratch) in GB
@@ -123,7 +122,7 @@ def main():
             # Actual disk usage in GB
             disk_usage = int(cols[8]) / float(1024**2)
             # Percentage over/under disk usage
-            disk_percent = (disk_usage / request_disk) * 100
+            # disk_percent = (disk_usage / request_disk) * 100
 
             # Runtime
             # Job start date in epoch seconds
@@ -144,9 +143,10 @@ def main():
                 job = "(interactive)"
 
             # Append the new row to the output table
-            out_table.append([cluster, process, owner, host, request_cpus, "{0:.1f}".format(cpu_percent),
-                              "{0:.1f}".format(mem_usage), "{0:.1f}".format(mem_percent), "{0:.1f}".format(disk_usage),
-                              "{0:.1f}".format(disk_percent), duration, job])
+            out_table.append([cluster, process, owner, host,
+                              "/".join(map(str, [request_cpus, int(loadave + 0.5)])),
+                              "/".join(map(str, [int(request_mem), int(mem_usage)])),
+                              "/".join(map(str, [int(request_disk), int(disk_usage)])), duration, job])
 
     if args.tab:
         print("\t".join(map(str, headers)))
@@ -161,11 +161,11 @@ def main():
             for i, row in enumerate(out_table):
                 # Colorize output
                 # CPU
-                out_table[i][4] = assign_color(float(row[4]))
+                out_table[i][4] = assign_color(row[4])
                 # Memory
-                out_table[i][6] = assign_color(float(row[6]))
+                out_table[i][5] = assign_color(row[5])
                 # Disk
-                out_table[i][8] = assign_color(float(row[8]))
+                out_table[i][6] = assign_color(row[6])
             #     # If CPU usage is > 100% color red
             #     if float(row[4]) > 100:
             #         out_table[i][4] = red(row[4])
@@ -179,16 +179,19 @@ def main():
         print(tabulate(out_table, headers=headers))
 
 
-def assign_color(percent):
+def assign_color(ratio):
     from colors import color
+    requested, actual = ratio.split("/")
+    percent = (float(actual) / float(requested)) * 100
+
     if 150 < percent < 200:
-        return color(str(percent), fg=9)
+        return color(ratio, fg=9)
     elif percent >= 200:
-        return color(str(percent), fg=1)
+        return color(ratio, fg=1)
     elif percent <= 50:
-        return color(str(percent), fg=10)
+        return color(ratio, fg=10)
     else:
-        return str(percent)
+        return ratio
 
 if __name__ == '__main__':
     main()
