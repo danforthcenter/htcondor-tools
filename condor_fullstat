@@ -108,10 +108,10 @@ def main():
 
             # Memory
             # Requested RAM in GB
-            # If the requested memory was undefined, set the default to 1024 MB
-            if cols[5] == 0:
-                cols[5] = 1024
             request_mem = int(cols[5]) / float(1024)
+            # If the requested memory is 0 GB, set to 1 GB
+            if request_mem == 0:
+                request_mem = 1
             # Actual current RAM usage in GB
             mem_usage = int(cols[6]) / float(1024)
             # Percentage over/under RAM usage
