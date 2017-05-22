@@ -182,6 +182,8 @@ def main():
 def assign_color(ratio):
     from colors import color
     requested, actual = ratio.split("/")
+    if int(requested) == 0:
+        requested = 1
     percent = (float(actual) / float(requested)) * 100
 
     if 150 < percent < 200:
