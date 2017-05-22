@@ -176,7 +176,12 @@ def main():
             #     if float(row[8]) > 100:
             #         out_table[i][8] = red(row[8])
         # Use tabulate to print out a "pretty" table
-        print(tabulate(out_table, headers=headers))
+        tab_out = tabulate(out_table, headers=headers)
+        rows = tab_out.split("\n")
+        rows.append(rows[1])
+        rows.append("CPU, memory, and disk resources are shown as actual usage over requested resources.")
+        print("\n".join(map(str, rows)) + "\n")
+
 
 
 def assign_color(ratio):
