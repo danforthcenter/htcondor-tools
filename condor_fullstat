@@ -144,9 +144,9 @@ def main():
 
             # Append the new row to the output table
             out_table.append([cluster, process, owner, host,
-                              "/".join(map(str, [request_cpus, int(loadave + 0.5)])),
-                              "/".join(map(str, [int(request_mem), int(mem_usage)])),
-                              "/".join(map(str, [int(request_disk), int(disk_usage)])), duration, job])
+                              "/".join(map(str, [int(loadave + 0.5), request_cpus])),
+                              "/".join(map(str, [int(mem_usage), int(request_mem)])),
+                              "/".join(map(str, [int(disk_usage), int(request_disk)])), duration, job])
 
     if args.tab:
         print("\t".join(map(str, headers)))
@@ -181,7 +181,7 @@ def main():
 
 def assign_color(ratio):
     from colors import color
-    requested, actual = ratio.split("/")
+    actual, requested = ratio.split("/")
     if int(requested) == 0:
         requested = 1
     percent = (float(actual) / float(requested)) * 100
