@@ -10,8 +10,12 @@ where:
     -e		executable path for condor job
     -a		arguments for condor job
     -t		number of cpus requested aka threads
+    -r		amount of memory requested
     -l		log directory where the logs will be written to
     -s		several logs using the name variable and file variables or just one using the name variable
+    -x		extra condor submit job script variables separated by comma i.e. 'Rank=memory,notification=Never,var1=blah' will overwrite any variables in the original stub as well
+
+In the script there exists a condor stub example file that is used to primarily create a beginning condor job file. Feel free to edit it to your preferences although if updating from github it will be overwritten.
 
 Example usage:
 1) Before Bash Expansion:
@@ -20,7 +24,7 @@ bash `basename $0` -d \$(pwd) -g *.fastq.gz -m 1 -n Sample_Fastqc -e \$(which fa
 bash `basename $0` -d $(pwd) -g *.fastq.gz -m 1 -n Sample_Fastqc -e $(which fastqc) -a \"-t \\\$(request_cpus) -o fastqc/ \\\$(file)\" -t 6 -l $HOME/.logs > Sample_Fastqc.condor"
 
 # while getopts ':hdgneat:' option; do
-while getopts ':hd:g:m:n:e:a:t:l:s' option; do
+while getopts ':hd:g:m:n:e:a:t:r:l:sx:' option; do
   case "${option}" in
     h) echo "$usage"
        exit
@@ -39,9 +43,13 @@ while getopts ':hd:g:m:n:e:a:t:l:s' option; do
        ;;
     t) REQUEST_CPUS=$(echo ${OPTARG} | sed -e 's/[\/&]/\\&/g')
        ;;
+    r) REQUEST_MEMORY=$(echo ${OPTARG} | sed -e 's/[\/&]/\\&/g')
+       ;;
     l) LOG_DIR=${OPTARG}
        ;;
     s) SEPARATE="true"
+       ;;
+    x) EXTRA=${OPTARG}
        ;;
     :) printf "missing argument for -%s\n" "$OPTARG" >&2
        echo "$usage" >&2
@@ -55,8 +63,9 @@ while getopts ':hd:g:m:n:e:a:t:l:s' option; do
 done
 shift $((OPTIND - 1))
 
-# It prints to stdout a condor_submit job file that can be redirected to a file: 
 
+
+# It prints to stdout a condor_submit job file that can be redirected to a file: 
 # Reads in the long multi line string to INPUT_2 feel free to change as desired.
 read -r -d '' INPUT_2 <<-'EOF'
 ########################################################
@@ -75,7 +84,7 @@ log              = $(LOG_DIR)/$(name).log
 output           = $(LOG_DIR)/$(name).out
 error            = $(LOG_DIR)/$(name).error
 request_cpus     = 
-request_memory   = 30G
+request_memory   = 
 notification     = Always
 Rank             = cpus
 
@@ -89,7 +98,8 @@ EOF
 INPUT_LOG_SEP=`find ${FIND_DIR} -maxdepth ${FIND_MAX} -name ${FIND_GLOB} | xargs -I {} bash -c 'filename=$(basename {});printf "filename=${filename}\nfile={}\nqueue\n"'`
 
 # Replacing the arguments of the bash script within the INPUT_2 variable
-echo "$INPUT_2" | sed -r "s/(name\s+=\s+)/\1${NAME}/" | sed -r "s/(executable\s+=\s+)/\1${EXECUTABLE}/" | sed -r "s/(arguments\s+=\s+)/\1${ARGUMENTS}/" | sed -r "s/(request_cpus\s+=\s+)/\1${REQUEST_CPUS}/"
+echo "$INPUT_2" | sed -r "s/(name\s+=\s+)/\1${NAME}/" | sed -r "s/(executable\s+=\s+)/\1${EXECUTABLE}/" | sed -r "s/(arguments\s+=\s+)/\1${ARGUMENTS}/" | sed -r "s/(request_cpus\s+=\s+)/\1${REQUEST_CPUS}/" | sed -r "s/(request_memory\s+=\s+)/\1${REQUEST_MEMORY}/"
+
 ## If the command line parameter -s was included make the log files per file instead of constantly appended
 if [ "$SEPARATE" = "true" ]; then
     printf "name\t\t = \$(name).\$(filename)\n"
@@ -99,5 +109,6 @@ fi
 
 # Adding in the LOG_DIR variable to the condor job file
 printf "LOG_DIR\t\t = ${LOG_DIR}\n"
+echo "$EXTRA" | tr "," "\n"
 # Printing the files
 printf "%s\n" $INPUT_LOG_SEP
