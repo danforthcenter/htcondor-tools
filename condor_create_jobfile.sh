@@ -8,7 +8,7 @@ where:
     -m		maxdepth for find: 1 for current directory only, 2 for subdirectories
     -n		name for condor job
     -e		executable path for condor job
-    -a		arguments for condor job
+    -a		arguments for condor job. Always include \\\$(file)  as your target file or directory. Always escaping the dollar sign ($). Same applies for a multithreading parameter.
     -t		number of cpus requested aka threads
     -r		amount of memory requested
     -l		log directory where the logs will be written to
