@@ -42,8 +42,8 @@ def main():
     machine = ["condor_status", "-autoformat:t", "JobId", "LoadAvg"]
 
     # Output table headers
-    headers = ["ID", "Owner", "Host", "CPUs", "CPUs (%)", "Memory (GB)", "Memory (%)", "Disk (GB)", "Disk (%)",
-               "Run Time", "Cmd"]
+    headers = ["Cluster", "Process", "Owner", "Host", "CPUs", "CPUs (%)", "Memory (GB)", "Memory (%)", "Disk (GB)",
+               "Disk (%)", "Run Time", "Cmd"]
 
     # Run condor_status to get load averages per job
     loads = {}
@@ -90,6 +90,8 @@ def main():
                     cols[i] = 0
             # Cluster ID + Job ID
             job_id = cols[0] + "." + cols[1]
+            cluster = cols[0]
+            process = cols[1]
             # Username
             owner = cols[2]
             # Host/slot
@@ -106,6 +108,9 @@ def main():
 
             # Memory
             # Requested RAM in GB
+            # If the requested memory was undefined, set the default to 1024 MB
+            if cols[5] == 0:
+                cols[5] = 1024
             request_mem = int(cols[5]) / float(1024)
             # Actual current RAM usage in GB
             mem_usage = int(cols[6]) / float(1024)
@@ -139,7 +144,7 @@ def main():
                 job = "(interactive)"
 
             # Append the new row to the output table
-            out_table.append([job_id, owner, host, request_cpus, "{0:.1f}".format(cpu_percent),
+            out_table.append([cluster, process, owner, host, request_cpus, "{0:.1f}".format(cpu_percent),
                               "{0:.1f}".format(mem_usage), "{0:.1f}".format(mem_percent), "{0:.1f}".format(disk_usage),
                               "{0:.1f}".format(disk_percent), duration, job])
 
