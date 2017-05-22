@@ -1,5 +1,5 @@
 #!/bin/bash
-usage="$(basename "$0") [-h] [-d DIR -g GLOB -m MAXDEPTH -n NAME -e EXECUTABLE -a ARGUMENTS -t REQUEST_CPUS -r REQUEST_MEMORY -i REQUEST_DISK -l LOG_DIRECTORY -f TRANSFER_FILES -s SEPARATE_LOGS -x EXTRA_VARIABLES] -- program to make you a condor submit job script
+usage="$(basename "$0") [-h] [-d DIR -g GLOB -m MAXDEPTH -n NAME -e EXECUTABLE -a ARGUMENTS -t REQUEST_CPUS -r REQUEST_MEMORY -i REQUEST_DISK -l LOG_DIRECTORY -x EXTRA_VARIABLES -f -s] -- program to make you a condor submit job script
 
 where:
     -h		show this help text
@@ -13,6 +13,7 @@ where:
     -r		amount of memory requested
     -i		amount of disk to request
     -l		log directory where the logs will be written to
+    -f	        should transfer input files to scratch?
     -s		several logs using the name variable and file variables or just one using the name variable
     -x		extra condor submit job script variables separated by comma i.e. 'Rank=memory|notification=Never|var1=blah' will overwrite any variables in the original stub as well
 
@@ -24,7 +25,7 @@ bash `basename $0` -d \$(pwd) -g *.fastq.gz -m 1 -n Sample_Fastqc -e \$(which fa
 2) After Bash Expansion:
 bash `basename $0` -d $(pwd) -g *.fastq.gz -m 1 -n Sample_Fastqc -e $(which fastqc) -a \"-t \\\$(request_cpus) -o fastqc/ \\\$(file)\" -t 6 -l $HOME/.logs > Sample_Fastqc.condor"
 
-while getopts ':hd:g:m:n:e:a:t:r:i:l:fsx:' option; do
+while getopts ':hd:g:m:n:e:a:t:r:i:l:x:fs' option; do
   case "${option}" in
     h) echo "$usage"
        exit
@@ -49,12 +50,12 @@ while getopts ':hd:g:m:n:e:a:t:r:i:l:fsx:' option; do
        ;;
     l) LOG_DIR=${OPTARG}
        ;;
+    x) EXTRA=${OPTARG}
+       ;;
     f) TRANSFER="true"
        ;;
     s) SEPARATE="true"
-       ;;
-    x) EXTRA=${OPTARG}
-       ;;
+       ;;    
     :) printf "missing argument for -%s\n" "$OPTARG" >&2
        echo "$usage" >&2
        exit 1
@@ -67,6 +68,12 @@ while getopts ':hd:g:m:n:e:a:t:r:i:l:fsx:' option; do
 done
 shift $((OPTIND - 1))
 
+if [[ -z $FIND_DIR ]] || [[ -z $FIND_GLOB ]] || [[ -z $FIND_MAX ]] || [[ -z $NAME ]] || [[ -z $EXECUTABLE ]] || [[ -z $ARGUMENTS ]] || [[ -z $REQUEST_CPUS ]] || [[ -z $REQUEST_DISK ]] || [[ -z $REQUEST_MEMORY ]] || [[ -z $LOG_DIR ]]
+then
+    printf "One of the necessary arguments is missing, please provide it:\n -d DIR -g GLOB -m MAXDEPTH -n NAME -e EXECUTABLE -a ARGUMENTS -t REQUEST_CPUS -r REQUEST_MEMORY -i REQUEST_DISK -l LOG_DIRECTORY\n"
+    echo "$usage" >&2
+    exit 1
+fi
 
 
 # It prints to stdout a condor_submit job file that can be redirected to a file: 
