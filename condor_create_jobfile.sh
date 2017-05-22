@@ -1,5 +1,5 @@
 #!/bin/bash
-usage="$(basename "$0") [-h] [-d DIR -g GLOB -m MAXDEPTH -n NAME -e EXECUTABLE -a ARGUMENTS -t THREADS/REQUEST_CPUS -l LOG_DIRECTORY] -- program to make you a condor submit job script
+usage="$(basename "$0") [-h] [-d DIR -g GLOB -m MAXDEPTH -n NAME -e EXECUTABLE -a ARGUMENTS -t REQUEST_CPUS -r REQUEST_MEMORY -i REQUEST_DISK -l LOG_DIRECTORY -f TRANSFER_FILES -s SEPARATE_LOGS -x EXTRA_VARIABLES] -- program to make you a condor submit job script
 
 where:
     -h		show this help text
@@ -11,6 +11,7 @@ where:
     -a		arguments for condor job. Always include \\\$(file)  as your target file or directory. Always escaping the dollar sign ($). Same applies for a multithreading parameter.
     -t		number of cpus requested aka threads
     -r		amount of memory requested
+    -i		amount of disk to request
     -l		log directory where the logs will be written to
     -s		several logs using the name variable and file variables or just one using the name variable
     -x		extra condor submit job script variables separated by comma i.e. 'Rank=memory|notification=Never|var1=blah' will overwrite any variables in the original stub as well
@@ -23,8 +24,7 @@ bash `basename $0` -d \$(pwd) -g *.fastq.gz -m 1 -n Sample_Fastqc -e \$(which fa
 2) After Bash Expansion:
 bash `basename $0` -d $(pwd) -g *.fastq.gz -m 1 -n Sample_Fastqc -e $(which fastqc) -a \"-t \\\$(request_cpus) -o fastqc/ \\\$(file)\" -t 6 -l $HOME/.logs > Sample_Fastqc.condor"
 
-# while getopts ':hdgneat:' option; do
-while getopts ':hd:g:m:n:e:a:t:r:l:fsx:' option; do
+while getopts ':hd:g:m:n:e:a:t:r:i:l:fsx:' option; do
   case "${option}" in
     h) echo "$usage"
        exit
@@ -44,6 +44,8 @@ while getopts ':hd:g:m:n:e:a:t:r:l:fsx:' option; do
     t) REQUEST_CPUS=$(echo ${OPTARG} | sed -e 's/[\/&]/\\&/g')
        ;;
     r) REQUEST_MEMORY=$(echo ${OPTARG} | sed -e 's/[\/&]/\\&/g')
+       ;;
+    i) REQUEST_DISK=${OPTARG}
        ;;
     l) LOG_DIR=${OPTARG}
        ;;
@@ -87,6 +89,7 @@ output           = $(LOG_DIR)/$(name).out
 error            = $(LOG_DIR)/$(name).error
 request_cpus     = 
 request_memory   = 
+request_disk     = 
 notification     = Always
 Rank             = cpus
 
@@ -95,13 +98,15 @@ accounting_group = $ENV(CONDOR_GROUP)
 ########################################################
 EOF
 
+INPUT_2_FINAL=$(echo "$INPUT_2" | sed -r "s/(name\s+=\s+)/\1${NAME}/" | sed -r "s/(executable\s+=\s+)/\1${EXECUTABLE}/" | sed -r "s/(arguments\s+=\s+)/\1${ARGUMENTS}/" | sed -r "s/(request_cpus\s+=\s+)/\1${REQUEST_CPUS}/" | sed -r "s/(request_memory\s+=\s+)/\1${REQUEST_MEMORY}/" | sed -r "s/(request_disk\s+=\s+)/\1${REQUEST_DISK}/")
+
 # Adding in transfering of files
 if [ "$TRANSFER" = "true" ]; then
     # Getting the files and naming them file= and adding a queue afterwards
     # This also works for directories just have to make maxdepth be 1 and the glob just be the directory name exact
     INPUT_LOG_SEP=`find ${FIND_DIR} -maxdepth ${FIND_MAX} -name ${FIND_GLOB} | xargs -I {} bash -c 'filename=$(basename {});printf "file=${filename}\ntransfer_input_files={}\nqueue\n"'`
     # Replacing the arguments of the bash script within the INPUT_2 variable
-    echo "$INPUT_2" | sed -r "s/(name\s+=\s+)/\1${NAME}/" | sed -r "s/(executable\s+=\s+)/\1${EXECUTABLE}/" | sed -r "s/(arguments\s+=\s+)/\1${ARGUMENTS}/" | sed -r "s/(request_cpus\s+=\s+)/\1${REQUEST_CPUS}/" | sed -r "s/(request_memory\s+=\s+)/\1${REQUEST_MEMORY}/"
+    echo "$INPUT_2_FINAL"
 
     ## If the command line parameter -s was included make the log files per file instead of constantly appended
     if [ "$SEPARATE" = "true" ]; then
@@ -123,7 +128,7 @@ else
     INPUT_LOG_SEP=`find ${FIND_DIR} -maxdepth ${FIND_MAX} -name ${FIND_GLOB} | xargs -I {} bash -c 'filename=$(basename {});printf "filename=${filename}\nfile={}\nqueue\n"'`
     
     # Replacing the arguments of the bash script within the INPUT_2 variable
-    echo "$INPUT_2" | sed -r "s/(name\s+=\s+)/\1${NAME}/" | sed -r "s/(executable\s+=\s+)/\1${EXECUTABLE}/" | sed -r "s/(arguments\s+=\s+)/\1${ARGUMENTS}/" | sed -r "s/(request_cpus\s+=\s+)/\1${REQUEST_CPUS}/" | sed -r "s/(request_memory\s+=\s+)/\1${REQUEST_MEMORY}/"
+    echo "$INPUT_2_FINAL"
 
     ## If the command line parameter -s was included make the log files per file instead of constantly appended
     if [ "$SEPARATE" = "true" ]; then
