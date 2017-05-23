@@ -1,5 +1,5 @@
 #!/bin/bash
-usage="$(basename "$0") [-h] [-d DIR -g GLOB -m MAXDEPTH -n NAME -e EXECUTABLE -a ARGUMENTS -t REQUEST_CPUS -r REQUEST_MEMORY -i REQUEST_DISK -l LOG_DIRECTORY -x EXTRA_VARIABLES -f -s] -- program to make you a condor submit job script
+usage="$(basename "$0") [-h] [-d DIR -g GLOB -m MAXDEPTH -n NAME -e EXECUTABLE -a ARGUMENTS -c REQUEST_CPUS -r REQUEST_MEMORY -i REQUEST_DISK -l LOG_DIRECTORY -x EXTRA_VARIABLES -f -s] -- program to make you a condor submit job script
 
 where:
     -h		show this help text
@@ -9,23 +9,24 @@ where:
     -n		name for condor job
     -e		executable path for condor job
     -a		arguments for condor job. Always include \\\$(file)  as your target file or directory. Always escaping the dollar sign ($). Same applies for a multithreading parameter.
-    -t		number of cpus requested aka threads
+    -c		number of cpus requested aka threads
     -r		amount of memory requested
     -i		amount of disk to request
     -l		log directory where the logs will be written to
     -f	        should transfer input files to scratch?
     -s		several logs using the name variable and file variables or just one using the name variable
     -x		extra condor submit job script variables separated by comma i.e. 'Rank=memory|notification=Never|var1=blah' will overwrite any variables in the original stub as well
+    -t		argument to find -type optional (experimental for now)
 
 In the script there exists a condor stub example file that is used to primarily create a beginning condor job file. Feel free to edit it to your preferences although if updating from github it will be overwritten.
 
 Example usage:
 1) Before Bash Expansion:
-bash `basename $0` -d \$(pwd) -g *.fastq.gz -m 1 -n Sample_Fastqc -e \$(which fastqc) -a \"-t \\\$(request_cpus) -o fastqc/ \\\$(file)\" -t 6 -l \$HOME/.logs > Sample_Fastqc.condor
+bash `basename $0` -d \$(pwd) -g *.fastq.gz -m 1 -n Sample_Fastqc -e \$(which fastqc) -a \"-t \\\$(request_cpus) -o fastqc/ \\\$(file)\" -c 6 -l \$HOME/.logs > Sample_Fastqc.condor
 2) After Bash Expansion:
-bash `basename $0` -d $(pwd) -g *.fastq.gz -m 1 -n Sample_Fastqc -e $(which fastqc) -a \"-t \\\$(request_cpus) -o fastqc/ \\\$(file)\" -t 6 -l $HOME/.logs > Sample_Fastqc.condor"
+bash `basename $0` -d $(pwd) -g *.fastq.gz -m 1 -n Sample_Fastqc -e $(which fastqc) -a \"-t \\\$(request_cpus) -o fastqc/ \\\$(file)\" -c 6 -l $HOME/.logs > Sample_Fastqc.condor"
 
-while getopts ':hd:g:m:n:e:a:t:r:i:l:x:fs' option; do
+while getopts ':hd:g:m:n:e:a:c:r:i:l:x:fst:' option; do
   case "${option}" in
     h) echo "$usage"
        exit
@@ -42,11 +43,11 @@ while getopts ':hd:g:m:n:e:a:t:r:i:l:x:fs' option; do
        ;;
     a) ARGUMENTS=$(echo ${OPTARG} | sed -e 's/[\/&]/\\&/g')
        ;;
-    t) REQUEST_CPUS=$(echo ${OPTARG} | sed -e 's/[\/&]/\\&/g')
+    c) REQUEST_CPUS=$(echo ${OPTARG} | sed -e 's/[\/&]/\\&/g')
        ;;
     r) REQUEST_MEMORY=$(echo ${OPTARG} | sed -e 's/[\/&]/\\&/g')
        ;;
-    i) REQUEST_DISK=${OPTARG}
+    i) REQUEST_DISK=$(echo ${OPTARG} | sed -e 's/[\/&]/\\&/g')
        ;;
     l) LOG_DIR=${OPTARG}
        ;;
@@ -55,7 +56,9 @@ while getopts ':hd:g:m:n:e:a:t:r:i:l:x:fs' option; do
     f) TRANSFER="true"
        ;;
     s) SEPARATE="true"
-       ;;    
+       ;;
+    t) TYPE=${OPTARG}
+       ;;
     :) printf "missing argument for -%s\n" "$OPTARG" >&2
        echo "$usage" >&2
        exit 1
@@ -70,7 +73,7 @@ shift $((OPTIND - 1))
 
 if [[ -z $FIND_DIR ]] || [[ -z $FIND_GLOB ]] || [[ -z $FIND_MAX ]] || [[ -z $NAME ]] || [[ -z $EXECUTABLE ]] || [[ -z $ARGUMENTS ]] || [[ -z $REQUEST_CPUS ]] || [[ -z $REQUEST_DISK ]] || [[ -z $REQUEST_MEMORY ]] || [[ -z $LOG_DIR ]]
 then
-    printf "One of the necessary arguments is missing, please provide it:\n -d DIR -g GLOB -m MAXDEPTH -n NAME -e EXECUTABLE -a ARGUMENTS -t REQUEST_CPUS -r REQUEST_MEMORY -i REQUEST_DISK -l LOG_DIRECTORY\n"
+    printf "One of the necessary arguments is missing, please provide it:\n -d DIR -g GLOB -m MAXDEPTH -n NAME -e EXECUTABLE -a ARGUMENTS -c REQUEST_CPUS -r REQUEST_MEMORY -i REQUEST_DISK -l LOG_DIRECTORY\n"
     echo "$usage" >&2
     exit 1
 fi
@@ -111,7 +114,12 @@ INPUT_2_FINAL=$(echo "$INPUT_2" | sed -r "s/(name\s+=\s+)/\1${NAME}/" | sed -r "
 if [ "$TRANSFER" = "true" ]; then
     # Getting the files and naming them file= and adding a queue afterwards
     # This also works for directories just have to make maxdepth be 1 and the glob just be the directory name exact
-    INPUT_LOG_SEP=`find ${FIND_DIR} -maxdepth ${FIND_MAX} -name ${FIND_GLOB} | xargs -I {} bash -c 'filename=$(basename {});printf "file=${filename}\ntransfer_input_files={}\nqueue\n"'`
+    if [[ -z $TYPE ]]; then
+	INPUT_LOG_SEP=`find ${FIND_DIR} -maxdepth ${FIND_MAX} -name ${FIND_GLOB} | xargs -I {} bash -c 'filename=$(basename {});printf "file=${filename}\ntransfer_input_files={}\nqueue\n"'`
+    else
+	INPUT_LOG_SEP=`find ${FIND_DIR} -maxdepth ${FIND_MAX} -type ${TYPE} -name ${FIND_GLOB} | xargs -I {} bash -c 'filename=$(basename {});printf "file=${filename}\ntransfer_input_files={}\nqueue\n"'`
+    fi
+    
     # Replacing the arguments of the bash script within the INPUT_2 variable
     echo "$INPUT_2_FINAL"
 
@@ -132,8 +140,12 @@ if [ "$TRANSFER" = "true" ]; then
 else
     # Getting the files and naming them file= and adding a queue afterwards
     # This also works for directories just have to make maxdepth be 1 and the glob just be the directory name exact
-    INPUT_LOG_SEP=`find ${FIND_DIR} -maxdepth ${FIND_MAX} -name ${FIND_GLOB} | xargs -I {} bash -c 'filename=$(basename {});printf "filename=${filename}\nfile={}\nqueue\n"'`
-    
+    if [[ -z $TYPE ]]; then
+	INPUT_LOG_SEP=`find ${FIND_DIR} -maxdepth ${FIND_MAX} -name ${FIND_GLOB} | xargs -I {} bash -c 'filename=$(basename {});printf "filename=${filename}\nfile={}\nqueue\n"'`
+    else
+	INPUT_LOG_SEP=`find ${FIND_DIR} -maxdepth ${FIND_MAX} -type ${TYPE} -name ${FIND_GLOB} | xargs -I {} bash -c 'filename=$(basename {});printf "filename=${filename}\nfile={}\nqueue\n"'`
+    fi
+            
     # Replacing the arguments of the bash script within the INPUT_2 variable
     echo "$INPUT_2_FINAL"
 
