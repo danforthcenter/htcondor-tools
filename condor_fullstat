@@ -145,8 +145,8 @@ def main():
             # Append the new row to the output table
             out_table.append([cluster, process, owner, host,
                               "/".join(map(str, [int(loadave + 0.5), request_cpus])),
-                              "/".join(map(str, [int(mem_usage), int(request_mem)])),
-                              "/".join(map(str, [int(disk_usage), int(request_disk)])), duration, job])
+                              "/".join(map(str, [int(mem_usage + 0.5), int(request_mem + 0.5)])),
+                              "/".join(map(str, [int(disk_usage + 0.5), int(request_disk + 0.5)])), duration, job])
 
     if args.tab:
         print("\t".join(map(str, headers)))
