@@ -54,9 +54,9 @@ def main():
     c = db.cursor(MySQLdb.cursors.DictCursor)
 
     # condor_q parameters
-    cmd = ["condor_q", "-autoformat:t", "ClusterId", "ProcId", "Owner", "RemoteHost", "RequestCpus", "RequestMemory",
-           "MemoryUsage", "RequestDisk", "DiskUsage", "JobStartDate", "ServerTime", "Cmd", "JobUniverse", "WantDocker",
-           "ShouldTransferFiles", "AcctGroup"]
+    cmd = ["condor_q", "-allusers", "-autoformat:t", "ClusterId", "ProcId", "Owner", "RemoteHost", "RequestCpus",
+           "RequestMemory", "MemoryUsage", "RequestDisk", "DiskUsage", "JobStartDate", "ServerTime", "Cmd",
+           "JobUniverse", "WantDocker", "ShouldTransferFiles", "AcctGroup"]
 
     machine = ["condor_status", "-autoformat:t", "JobId", "LoadAvg"]
 

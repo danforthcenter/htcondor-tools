@@ -36,8 +36,8 @@ def main():
     args = options()
 
     # condor_q parameters
-    cmd = ["condor_q", "-autoformat:t", "ClusterId", "ProcId", "Owner", "RemoteHost", "RequestCpus", "RequestMemory",
-           "MemoryUsage", "RequestDisk", "DiskUsage", "JobStartDate", "ServerTime", "Cmd"]
+    cmd = ["condor_q", "-allusers", "-autoformat:t", "ClusterId", "ProcId", "Owner", "RemoteHost", "RequestCpus",
+           "RequestMemory", "MemoryUsage", "RequestDisk", "DiskUsage", "JobStartDate", "ServerTime", "Cmd"]
 
     machine = ["condor_status", "-autoformat:t", "JobId", "LoadAvg"]
 
