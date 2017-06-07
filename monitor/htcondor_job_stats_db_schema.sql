@@ -41,7 +41,7 @@ INSERT INTO `units` (`unit_id`, `unit_name`, `url`) VALUES ("KiB", "kibibyte", "
 CREATE TABLE IF NOT EXISTS `job_stats` (
     `id` INT(9) UNSIGNED NOT NULL,
     `datetime` TIMESTAMP NOT NULL,
-    `cpu_load` FLOAT(3, 2) NOT NULL,
+    `cpu_load` FLOAT(5, 2) NOT NULL,
     `memory_usage` INT(6) NOT NULL,
     `disk_usage` INT(6) NOT NULL,
     FOREIGN KEY (id) REFERENCES jobs(id)
