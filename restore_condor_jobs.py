@@ -72,7 +72,7 @@ def main():
             out.write("accounting_group = " + job["AcctGroup"] + "\n")
             out.write("request_cpus = " + job["RequestCpus"] + "\n")
             out.write("request_memory = " + job["RequestMemory"] + "\n")
-            out.write("request_disk = " + job["524288000"] + "\n")
+            out.write("request_disk = " + job["RequestDisk"] + "\n")
             out.write("log = " + job["UserLog"] + "\n")
             out.write("out = " + job["Out"] + "\n")
             out.write("error = " + job["Err"] + "\n")
