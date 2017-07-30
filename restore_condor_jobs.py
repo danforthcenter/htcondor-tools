@@ -77,7 +77,8 @@ def main():
             out.write("out = " + job["Out"] + "\n")
             out.write("error = " + job["Err"] + "\n")
             out.write("executable = " + job["Cmd"] + "\n")
-            out.write("arguments = " + job["Args"] + "\n")
+            if "Args" in job:
+                out.write("arguments = " + job["Args"] + "\n")
             out.write("transfer_executable = " + job["TransferExecutable"] + "\n")
             out.write("should_transfer_files = " + job["ShouldTransferFiles"] + "\n")
             out.write("when_to_transfer_output = " + job["WhenToTransferOutput"] + "\n")
