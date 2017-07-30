@@ -62,7 +62,8 @@ def main():
             row = row.rstrip("\n")
             # Split key and value pair
             attributes = row.split(" = ")
-            job[attributes[0]] = attributes[1]
+            if len(attributes) == 2:
+                job[attributes[0]] = attributes[1]
         if len(job) > 0:
             out = open(job["ClusterId"] + "." + job["ProcId"] + ".condor", "w")
             out.write("# Job was run from " + job["Iwd"] + "\n\n")
