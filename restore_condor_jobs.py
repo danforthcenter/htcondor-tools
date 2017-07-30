@@ -36,15 +36,15 @@ def main():
 
     # Job universe IDs
     uni = {
-        1: "standard",
-        5: "vanilla",
-        7: "scheduler",
-        8: "MPI",
-        9: "grid",
-        10: "java",
-        11: "parallel",
-        12: "local",
-        13: "vm"
+        "1": "standard",
+        "5": "vanilla",
+        "7": "scheduler",
+        "8": "MPI",
+        "9": "grid",
+        "10": "java",
+        "11": "parallel",
+        "12": "local",
+        "13": "vm"
     }
 
     ids = args.ids.split(",")
