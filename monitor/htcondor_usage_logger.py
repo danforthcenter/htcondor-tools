@@ -70,6 +70,8 @@ def main():
                 identity = identity.replace('"', "")
                 # Remove the user domain
                 group_user = identity.replace("@ddpsc.org", "")
+                # Remove "nice-user"
+                group_user = identity.replace("nice-user", "")
                 group, user = "None", "None"
                 if "." in group_user:
                     # The user specified their accounting group
