@@ -152,11 +152,11 @@ def get_user_usage(group, user, date, db):
     """
     terms = (group, user, date + '%',)
     db.execute('SELECT * FROM `user_stats` WHERE `group` = ? AND `user` = ? AND `datetime` LIKE ?', terms)
-    result = db.fetchone()
-    if result is None:
-        return 0
-    else:
-        return int(result['usage'])
+    usage = 0
+    for result in db:
+        if result is not None:
+            usage += result['usage']
+    return int(usage)
 
 if __name__ == '__main__':
     main()
