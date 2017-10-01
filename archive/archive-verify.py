@@ -54,7 +54,7 @@ def verify_archive(path, archive):
             md5sum.update(chunk)
         md5str = md5sum.hexdigest()
         if md5str == metadata["ETag"]:
-            print("File archived successfully!")
+            print("File {0} archived successfully!".format(file))
     else:
         # The file may have been removed already and can be ignored
         pass
