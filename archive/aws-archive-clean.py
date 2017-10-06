@@ -44,7 +44,7 @@ def main():
                         break
             if delete is True:
                 print("Removing local file {0}.".format(file))
-                # os.remove(file)
+                os.remove(file)
         else:
             print("Verification of file {0} failed, skipping.".format(file))
 
