@@ -37,8 +37,8 @@ def main():
         for filename in files:
             # Find the files that have .archived extensions
             if filename[-8:] == "archived":
-                result = verify_archive(path=root, archive=filename)
-                out.write(os.path.join(root, filename) + "\t" + str(result) + "\n")
+                file, result = verify_archive(path=root, archive=filename)
+                out.write(file + "\t" + str(result) + "\n")
 
 
 def verify_archive(path, archive):
@@ -59,9 +59,9 @@ def verify_archive(path, archive):
             md5sum.update(chunk)
         md5str = md5sum.hexdigest()
         if md5str == metadata["ETag"]:
-            return True
+            return file, True
         else:
-            return False
+            return file, False
 
 
 if __name__ == "__main__":
