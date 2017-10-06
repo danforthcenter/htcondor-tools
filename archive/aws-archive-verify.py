@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-import boto3
 import json
 import hashlib
 import argparse
@@ -15,6 +14,9 @@ def options():
     parser = argparse.ArgumentParser(description="Verify files were archived into AWS and remove locally.",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-d", "--dir", help="Directory containing one or more files that were archived.", required=True)
+    parser.add_argument("-o", "--outfile",
+                        help="The output file contains the verification or failure results for each file.",
+                        required=True)
     args = parser.parse_args()
 
     return args
@@ -27,13 +29,16 @@ def main():
     """
     args = options()
 
+    out = open(args.outfile, "w")
+
     # Recursively walk through the input directory
     for root, dirs, files in os.walk(args.dir):
         # We only need to worry about verifying files
         for filename in files:
             # Find the files that have .archived extensions
             if filename[-8:] == "archived":
-                verify_archive(path=root, archive=filename)
+                result = verify_archive(path=root, archive=filename)
+                out.write(os.path.join(root, filename) + "\t" + str(result) + "\n")
 
 
 def verify_archive(path, archive):
@@ -54,10 +59,9 @@ def verify_archive(path, archive):
             md5sum.update(chunk)
         md5str = md5sum.hexdigest()
         if md5str == metadata["ETag"]:
-            print("File {0} archived successfully!".format(file))
-    else:
-        # The file may have been removed already and can be ignored
-        pass
+            return True
+        else:
+            return False
 
 
 if __name__ == "__main__":
