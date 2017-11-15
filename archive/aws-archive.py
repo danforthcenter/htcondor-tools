@@ -59,7 +59,7 @@ def archive_file(bucket, file):
     # Open file
     data = open(file, "rb")
     # Upload the file to S3 and get a response object
-    response = bucket.put_object(Body=data, Key=file, Metadata={"LastModified": str(metadata.st_mtime),
+    response = bucket.put_object(Body=data, Key=file[1:], Metadata={"LastModified": str(metadata.st_mtime),
                                                                 "Owner": pwd.getpwuid(metadata.st_uid).pw_name,
                                                                 "Group": grp.getgrgid(metadata.st_gid).gr_name})
     data.close()
