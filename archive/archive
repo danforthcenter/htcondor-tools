@@ -145,7 +145,7 @@ def configure(args):
 # Get file list
 ###########################################
 def get_file_list(path):
-    files = []
+    file_list = []
     if os.path.isfile(path):
         # If path points to a single file then append it to the file list
         # Skip files that have the archived extension
@@ -160,8 +160,8 @@ def get_file_list(path):
                 # Skip files that have the archived extension
                 if filename[-8:] != "archived":
                     # Get the absolute path to the file to use this as the key
-                    files.append(os.path.join(os.path.abspath(root), filename))
-    return files
+                    file_list.append(os.path.join(os.path.abspath(root), filename))
+    return file_list
 
 ###########################################
 
