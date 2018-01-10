@@ -1,0 +1,613 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import stat
+import boto3
+from botocore.client import ClientError
+import subprocess
+import json
+import pwd
+import grp
+import argparse
+from datetime import datetime
+import hashlib
+
+
+# Parse command-line options
+###########################################
+def options():
+    """Parse command-line options
+    """
+
+    # Initialize an argument parser
+    parser = argparse.ArgumentParser(description="Bioinformatics archiving tools.",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    # Initialize the subcommand parser
+    subparsers = parser.add_subparsers()
+
+    # Create the configure subcommand
+    config_cmd = subparsers.add_parser("configure", help="Configure the data archiving tool.")
+    config_cmd.set_defaults(func=configure)
+
+    # Create the aws subcommand
+    aws_cmd = subparsers.add_parser("aws", help="AWS data archiving tool. Uploads files to AWS and stores S3 metadata.")
+    aws_cmd.add_argument("--files", help="Files to be archived.", required=True)
+    aws_cmd.add_argument("--delete", help="Delete local files if archiving is successful.", default=False,
+                         action="store_true")
+    aws_cmd.add_argument("--bucket", help="AWS S3 bucket name. Overrides bucket set in the configuration file.")
+    aws_cmd.set_defaults(func=aws)
+
+    # Create the local subcommand
+    local_cmd = subparsers.add_parser("local", help="Local data archiving tool. Uploads files to a local archive "
+                                                    "target and stores metadata.")
+    local_cmd.add_argument("--files", help="Files to be archived.", required=True)
+    local_cmd.add_argument("--delete", help="Delete local files if archiving is successful.", default=False,
+                           action="store_true")
+    local_cmd.add_argument("--hostname", help="Local archive target computer/server hostname/IP.")
+    local_cmd.add_argument("--username", help="Local archive target computer/server username/login.")
+    local_cmd.add_argument("--path", help="Local archive target computer/server volume path.")
+    local_cmd.set_defaults(func=local)
+
+    # If no options are supplied, print the help menu
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
+
+    # Parse command-line options
+    args = parser.parse_args()
+
+    # Get the users' home directory
+    home = os.path.expanduser("~")
+
+    # Configuration file paths
+    args.config_dir = os.path.join(home, ".archive")
+    args.aws_dir = os.path.join(args.config_dir, "aws")
+    args.local_dir = os.path.join(args.config_dir, "local")
+    # Configuration file
+    args.config_file = os.path.join(args.config_dir, "config.json")
+
+    # If the configuration file already exists, read it
+    if os.path.exists(args.config_file):
+        f = open(args.config_file, "r")
+        args.conf = json.load(f)
+        f.close()
+    # Otherwise initialize the empty configuration
+    else:
+        args.conf = {
+            "aws": {
+                "s3-bucket": ""
+            },
+            "local": {
+                "username": "",
+                "hostname": "",
+                "path": ""
+            }
+        }
+
+    # Execute the selected subcommand
+    args.func(args)
+###########################################
+
+
+# Initialize and write a configuration file
+###########################################
+def configure(args):
+    # Create the archive configuration folder, if needed
+    if not os.path.exists(args.config_dir):
+        os.mkdir(args.config_dir)
+    # Create the aws log folder, if needed
+    if not os.path.exists(args.aws_dir):
+        os.mkdir(args.aws_dir)
+    # Create the local archive target log folder, if needed
+    if not os.path.exists(args.local_dir):
+        os.mkdir(args.local_dir)
+
+    # Prompt the user to fill in the configuration information
+    print("\nEnter the following configuration information as prompted. Press enter to keep the existing value (in "
+          "brackets).\n")
+    print("If you are going to use Amazon Web Services for archiving, enter the following:")
+
+    # Get the AWS S3 Bucket name
+    bucket = input("AWS S3 Bucket name [" + args.conf["aws"]["s3-bucket"] + "]: ")
+    # If a new value was entered, save it
+    if len(bucket) > 0:
+        args.conf["aws"]["s3-bucket"] = bucket
+
+    print("\nIf you are going to be using a local storage device for archiving, enter the following:")
+
+    # Get the local target hostname
+    hostname = input("Local archiving computer hostname or IP address [" + args.conf["local"]["hostname"] + "]: ")
+    # If a new value was entered, save it
+    if len(hostname) > 0:
+        args.conf["local"]["hostname"] = hostname
+
+    username = input("Local archiving computer username [" + args.conf["local"]["username"] + "]: ")
+    # If a new value was entered, save it
+    if len(username) > 0:
+        args.conf["local"]["username"] = username
+
+    path = input("Local archiving computer volume path [" + args.conf["local"]["path"] + "]: ")
+    # If a new value was entered, save it
+    if len(path) > 0:
+        args.conf["local"]["path"] = path
+
+    # Write the configuration data out to a file
+    f = open(args.config_file, "w")
+    f.write(json.dumps(args.conf, indent=4) + "\n")
+    f.close()
+
+    # Make the file only readable by the user
+    os.chmod(args.config_file, stat.S_IRUSR | stat.S_IWUSR)
+###########################################
+
+
+# Get file list
+###########################################
+def get_file_list(path):
+    files = []
+    if os.path.isfile(path):
+        # If path points to a single file then append it to the file list
+        # Skip files that have the archived extension
+        if path[-8:] != "archived":
+            # Get the absolute path to the file to use as the key
+            files.append(os.path.abspath(path))
+    elif os.path.isdir(path):
+        # If path points to a directory, then recursively walk through the provided path
+        for root, dirs, files in os.walk(path):
+            # We only need to worry about uploading files
+            for filename in files:
+                # Skip files that have the archived extension
+                if filename[-8:] != "archived":
+                    # Get the absolute path to the file to use this as the key
+                    files.append(os.path.join(os.path.abspath(root), filename))
+    return files
+
+###########################################
+
+
+# AWS archiving tool
+###########################################
+def aws(args):
+    # Unless the user supplied a bucket name, use the name stored in the configuration file
+    if not args.bucket:
+        args.bucket = args.conf["aws"]["s3-bucket"]
+
+    # If the bucket name is still empty, stop the program
+    if not args.bucket:
+        print("No AWS S3 Bucket name provided! Run archive configure to store a name or supply with with --bucket.")
+        sys.exit(1)
+
+    # Create a client object for AWS S3
+    s3 = boto3.resource('s3')
+
+    # Make sure the S3 bucket exists and you have permission to access it
+    try:
+        s3.meta.client.head_bucket(Bucket=args.bucket)
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "403":
+            print("\nYou do not have permission to access the S3 Bucket {0}.\n".format(args.bucket))
+        elif e.response["Error"]["Code"] == "404":
+            print("\nThe S3 Bucket {0} does not exist.\n".format(args.bucket))
+        else:
+            print("\nUnexpected error: {0}\n".format(e.response))
+        sys.exit(1)
+
+    # Connect to the specified S3 bucket
+    bucket = s3.Bucket(args.bucket)
+
+    # Get list of files in path
+    files = get_file_list(path=args.files)
+
+    # Create log file
+    log_file = os.path.join(args.aws_dir, datetime.now().isoformat() + ".txt")
+    log = open(log_file, "w")
+    log.write("Archiving {0} files.\n\n".format(str(len(files))))
+    log.write("Status\tFile\n")
+
+    # Inform the user how many files were found and where to find the log file
+    print("Archiving {0} files. Log file: {1}".format(str(len(files)), log_file), file=sys.stderr)
+
+    # Archive each file
+    for file in files:
+        # print("Archiving file {0}".format(file))
+        aws_archive_file(bucket=bucket, file=file, log=log, delete=args.delete)
+
+    # Close the log file
+    log.close()
+###########################################
+
+
+# AWS archive file function
+###########################################
+def aws_archive_file(bucket, file, log, delete=False):
+    # Get file metadata
+    metadata = get_local_file_metadata(file=file, service="aws")
+
+    # Open file
+    data = open(file, "rb")
+
+    # Upload the file data to S3 and get a response object
+    response = bucket.put_object(Body=data, Key=file[1:],
+                                 Metadata={"Username": metadata["File"]["FileOwner"]["Username"],
+                                           "Group": metadata["File"]["FileOwner"]["Group"],
+                                           "FileLastModified": metadata["File"]["FileLastModified"]})
+    data.close()
+
+    # Save the response information to keep a record of the archived data
+    # S3 Bucket name
+    metadata["S3"]["Bucket"] = response.bucket_name
+
+    # S3 file Key
+    metadata["S3"]["Key"] = response.key
+
+    # Archived datetime
+    metadata["S3"]["ArchivedDate"] = response.last_modified.isoformat()
+
+    # S3 MD5 checksum (aka ETag)
+    metadata["S3"]["Checksum"]["ChecksumValue"] = response.e_tag.replace('"', "")
+
+    # Verify that the local and S3 checksums match
+    if metadata["S3"]["Checksum"]["ChecksumValue"] == metadata["File"]["Checksum"]["ChecksumValue"]:
+        # Save metadata
+        arxiv = open(file + ".aws.archived", "w")
+        arxiv.write(json.dumps(metadata, indent=4) + "\n")
+        arxiv.close()
+
+        # Delete the local file if requested
+        if delete is True:
+            os.remove(file)
+
+        # Record successful transfer
+        log.write("SUCCESS\t{0}\n".format(file))
+    else:
+        print("Error: File {0} was not archived successfully.".format(file), file=sys.stderr)
+        log.write("FAIL\t{0}\n".format(file))
+
+
+# Local archiving tool
+###########################################
+def local(args):
+    # Unless the user supplied a hostname, use the hostname stored in the configuration file
+    if not args.hostname:
+        args.hostname = args.conf["local"]["hostname"]
+    # Unless the user supplied a username, use the username stored in the configuration file
+    if not args.username:
+        args.username = args.conf["local"]["username"]
+    # Unless the user supplied a path, use the path stored in the configuration file
+    if not args.path:
+        args.path = args.conf["local"]["path"]
+
+    # Get list of files in path
+    files = get_file_list(path=args.files)
+
+    # Create log file
+    log_file = os.path.join(args.local_dir, datetime.now().isoformat() + ".txt")
+    log = open(log_file, "w")
+    log.write("Archiving {0} files.\n\n".format(str(len(files))))
+    log.write("Status\tFile\n")
+
+    # Inform the user how many files were found and where to find the log file
+    print("Archiving {0} files. Log file: {1}".format(str(len(files)), log_file), file=sys.stderr)
+
+    # Archive each file
+    for file in files:
+        # print("Archiving file {0}".format(file))
+        local_archive_file(hostname=args.hostname, username=args.username, path=args.path, file=file,
+                           log=log, delete=args.delete)
+###########################################
+
+
+# Local archive file function
+###########################################
+def local_archive_file(hostname, username, path, file, log, delete=False):
+    # Get file metadata
+    metadata = get_local_file_metadata(file=file, service="local")
+
+    # Transfer data to the archiving server using rsync
+    try:
+        subprocess.run(["rsync", "--archive", "--relative", "--omit-dir-times", file,
+                        username + "@" + hostname + ":" + path], check=True)
+        success = True
+    except subprocess.CalledProcessError:
+        # Failed transfer
+        print("Error: File {0} was not archived successfully.".format(file), file=sys.stderr)
+        log.write("FAIL\t{0}\n".format(file))
+        success = False
+
+    # If the transfer was successful, store the metadata
+    if success:
+        # Local archive target hostname
+        metadata["Archive"]["Hostname"] = hostname
+
+        # Local archive target volume
+        metadata["Archive"]["Volume"] = path
+
+        # Local archive target archived file path
+        metadata["Archive"]["Path"] = os.path.join(path, file)
+
+        # Archived datetime
+        metadata["Archive"]["ArchivedDate"] = datetime.now().isoformat()
+
+        # Save metadata
+        arxiv = open(file + ".loc.archived", "w")
+        arxiv.write(json.dumps(metadata, indent=4) + "\n")
+        arxiv.close()
+
+        # Delete the local file if requested
+        if delete is True:
+            os.remove(file)
+
+        # Record successful transfer
+        log.write("SUCCESS\t{0}\n".format(file))
+###########################################
+
+
+# Initialize metadata object for AWS archived data
+###########################################
+def initialize_metadata_aws():
+    metadata = {
+        "@context": {
+            "meta": "http://meta.schema.org/",
+            "nfo": "http://oscaf.sourceforge.net/nfo.html#nfo:",
+            "nco": "http://oscaf.sourceforge.net/nco.html#nco:",
+            "xsd": "http://www.w3.org/2001/XMLSchema#",
+            "File": {
+                "@id": "nfo:FileDataObject",
+                "@container": "@set"
+            },
+            "FileName": {
+                "@id": "nfo:fileName",
+                "@type": "xsd:string"
+            },
+            "FileSize": {
+                "@id": "nfo:fileSize",
+                "@type": "xsd:integer"
+            },
+            "FileLastModified": {
+                "@id": "nfo:fileLastModified",
+                "@type": "xsd:dateTime"
+            },
+            "FilePermissions": {
+                "@id": "nfo:permissions",
+                "@type": "xsd:string"
+            },
+            "Checksum": {
+                "@id": "nfo:FileHash",
+                "@container": "@set"
+            },
+            "ChecksumAlgorithm": {
+                "@id": "nfo:hashAlgorithm",
+                "@type": "xsd:string"
+            },
+            "ChecksumValue": {
+                "@id": "nfo:hashValue",
+                "@type": "xsd:hexBinary"
+            },
+            "FileOwner": {
+                "@id": "nco:Contact",
+                "@container": "@set"
+            },
+            "Username": {
+                "@id": "nco:contactUID",
+                "@type": "xsd:string"
+            },
+            "Group": {
+                "@id": "nco:belongsToGroup",
+                "@type": "nco:contactGroupName"
+            },
+            "S3": {
+                "@id": "nfo:RemoteDataObject",
+                "@container": "@set"
+            },
+            "Bucket": {
+                "@id": "meta:Property",
+                "@type": "xsd:string"
+            },
+            "Key": {
+                "@id": "meta:Property",
+                "@type": "xsd:string"
+            },
+            "ArchivedDate": {
+                "@id": "meta:Property",
+                "@type": "xsd:dateTime"
+            },
+            "MetadataVersion": {
+                "@id": "meta:Property",
+                "@type": "xsd:integer"
+            }
+        },
+        "File": {
+            "FileName": "",
+            "FileSize": 0,
+            "FileOwner": {
+                "Username": "",
+                "Group": ""
+            },
+            "Checksum": {
+                "ChecksumAlgorithm": "MD5",
+                "ChecksumValue": ""
+            },
+            "FileLastModified": "",
+            "FilePermissions": ""
+        },
+        "S3": {
+            "Bucket": "",
+            "Key": "",
+            "Checksum": {
+                "ChecksumAlgorithm": "MD5",
+                "ChecksumValue": ""
+            },
+            "ArchivedDate": ""
+        },
+        "MetadataVersion": 1
+    }
+
+    return metadata
+
+
+# Initialize the common metadata structure
+###########################################
+def initialize_metadata_local():
+    metadata = {
+        "@context": {
+            "meta": "http://meta.schema.org/",
+            "nfo": "http://oscaf.sourceforge.net/nfo.html#nfo:",
+            "nco": "http://oscaf.sourceforge.net/nco.html#nco:",
+            "xsd": "http://www.w3.org/2001/XMLSchema#",
+            "File": {
+                "@id": "nfo:FileDataObject",
+                "@container": "@set"
+            },
+            "FileName": {
+                "@id": "nfo:fileName",
+                "@type": "xsd:string"
+            },
+            "FileSize": {
+                "@id": "nfo:fileSize",
+                "@type": "xsd:integer"
+            },
+            "FileLastModified": {
+                "@id": "nfo:fileLastModified",
+                "@type": "xsd:dateTime"
+            },
+            "FilePermissions": {
+                "@id": "nfo:permissions",
+                "@type": "xsd:string"
+            },
+            "Checksum": {
+                "@id": "nfo:FileHash",
+                "@container": "@set"
+            },
+            "ChecksumAlgorithm": {
+                "@id": "nfo:hashAlgorithm",
+                "@type": "xsd:string"
+            },
+            "ChecksumValue": {
+                "@id": "nfo:hashValue",
+                "@type": "xsd:hexBinary"
+            },
+            "FileOwner": {
+                "@id": "nco:Contact",
+                "@container": "@set"
+            },
+            "Username": {
+                "@id": "nco:contactUID",
+                "@type": "xsd:string"
+            },
+            "Group": {
+                "@id": "nco:belongsToGroup",
+                "@type": "nco:contactGroupName"
+            },
+            "Archive": {
+                "@id": "nfo:RemoteDataObject",
+                "@container": "@set"
+            },
+            "Hostname": {
+                "@id": "meta:Property",
+                "@type": "xsd:string"
+            },
+            "Volume": {
+                "@id": "meta:Property",
+                "@type": "xsd:string"
+            },
+            "Path": {
+                "@id": "meta:Property",
+                "@type": "xsd:string"
+            },
+            "ArchivedDate": {
+                "@id": "meta:Property",
+                "@type": "xsd:dateTime"
+            },
+            "MetadataVersion": {
+                "@id": "meta:Property",
+                "@type": "xsd:integer"
+            }
+        },
+        "File": {
+            "FileName": "",
+            "FileSize": 0,
+            "FileOwner": {
+                "Username": "",
+                "Group": ""
+            },
+            "Checksum": {
+                "ChecksumAlgorithm": "MD5",
+                "ChecksumValue": ""
+            },
+            "FileLastModified": "",
+            "FilePermissions": ""
+        },
+        "Archive": {
+            "Hostname": "",
+            "Volume": "",
+            "Path": "",
+            # "Checksum": {
+            #     "ChecksumAlgorithm": "MD5",
+            #     "ChecksumValue": ""
+            # },
+            "ArchivedDate": ""
+        },
+        "MetadataVersion": 1
+    }
+
+    return metadata
+
+
+# Retrieve or initialize the common metadata structure
+###########################################
+def get_local_file_metadata(file, service):
+    if service == "aws":
+        metadata = initialize_metadata_aws()
+    elif service == "local":
+        metadata = initialize_metadata_local()
+    else:
+        raise ValueError("Unknown service type {0}".format(service))
+
+    # Store filename
+    metadata["File"]["FileName"] = file
+
+    # Get the current status of the file
+    file_status = os.stat(file)
+
+    # Store the file size
+    metadata["File"]["FileSize"] = file_status.st_size
+
+    # Store file owner username
+    metadata["File"]["FileOwner"]["Username"] = pwd.getpwuid(file_status.st_uid).pw_name
+
+    # Store file owner group
+    metadata["File"]["FileOwner"]["Group"] = grp.getgrgid(file_status.st_gid).gr_name
+
+    # Store file last modified datetime
+    metadata["File"]["FileLastModified"] = datetime.utcfromtimestamp(file_status.st_mtime).isoformat()
+
+    # Store file permissions
+    metadata["File"]["FilePermissions"] = stat.filemode(file_status.st_mode)
+
+    # Store file MD5 checksum
+    data = open(file, "rb")
+    md5sum = hashlib.md5()
+    # Loop over chunks of the file so we don't read it all into memory
+    for chunk in iter(lambda: data.read(4096), b""):
+        # Update the checksum with each chunk
+        md5sum.update(chunk)
+    metadata["File"]["Checksum"]["ChecksumValue"] = md5sum.hexdigest()
+
+    return metadata
+
+
+# Main
+###########################################
+def main():
+    """Main program.
+    """
+    # Parse command-line options and run training method
+    options()
+
+
+###########################################
+
+
+if __name__ == '__main__':
+    main()
