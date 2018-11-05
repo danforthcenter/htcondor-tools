@@ -56,7 +56,7 @@ def main():
     # condor_q parameters
     cmd = ["condor_q", "-allusers", "-autoformat:t", "ClusterId", "ProcId", "Owner", "RemoteHost", "RequestCpus",
            "RequestMemory", "MemoryUsage", "RequestDisk", "DiskUsage", "JobStartDate", "ServerTime", "Cmd",
-           "JobUniverse", "WantDocker", "ShouldTransferFiles", "AcctGroup"]
+           "JobUniverse", "WantDocker", "ShouldTransferFiles", "AcctGroup", "GlobalJobId"]
 
     machine = ["condor_status", "-autoformat:t", "JobId", "LoadAvg"]
 
@@ -109,6 +109,8 @@ def main():
             stats["cluster"] = int(cols[0])
             # Process/Job ID
             stats["process"] = int(cols[1])
+            # Global Job ID
+            stats["global"] = cols[16]
             # Job ID
             job_id = str(stats["cluster"]) + "." + str(stats["process"])
             # Username
@@ -168,19 +170,17 @@ def main():
             stats["groupname"] = cols[15].replace("group_", "")
 
             # Is this job already in the database?
-            c.execute("""SELECT id FROM jobs WHERE cluster = %s AND process = %s""",
-                      (stats["cluster"], stats["process"]))
+            c.execute("""SELECT id FROM jobs WHERE global_id = %s""", (stats["global"]))
             stats["id"] = c.fetchone()
             # This is a new job
             if stats["id"] is None:
                 c.execute(
-                    """INSERT INTO jobs (cluster, process, username, groupname, start_date, cpu, memory, disk, host,
-                    universe, exe, transfer) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                    (stats["cluster"], stats["process"], stats["username"], stats["groupname"], stats["start_date"],
+                    """INSERT INTO jobs (cluster, process, global_id, username, groupname, start_date, cpu, memory, disk, host,
+                    universe, exe, transfer) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (stats["cluster"], stats["process"], stats["global"], stats["username"], stats["groupname"], stats["start_date"],
                      stats["cpu"], stats["memory"], stats["disk"], stats["host"], stats["universe"], stats["exe"],
                      stats["transfer"]))
-                c.execute("""SELECT id FROM jobs WHERE cluster = %s AND process = %s""",
-                          (stats["cluster"], stats["process"]))
+                c.execute("""SELECT id FROM jobs WHERE global_id = %s""", (stats["global"]))
                 stats["id"] = c.fetchone()
 
             # Insert the job statistics
