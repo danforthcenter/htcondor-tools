@@ -170,24 +170,24 @@ def main():
             stats["groupname"] = cols[15].replace("group_", "")
 
             # Is this job already in the database?
-            c.execute("""SELECT id FROM jobs WHERE global_id = %s""", (stats["global"]))
+            c.execute("""SELECT id FROM jobs WHERE global_id = %s""", [stats["global"]])
             stats["id"] = c.fetchone()
             # This is a new job
             if stats["id"] is None:
                 c.execute(
                     """INSERT INTO jobs (cluster, process, global_id, username, groupname, start_date, cpu, memory, disk, host,
                     universe, exe, transfer) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                    (stats["cluster"], stats["process"], stats["global"], stats["username"], stats["groupname"], stats["start_date"],
+                    [stats["cluster"], stats["process"], stats["global"], stats["username"], stats["groupname"], stats["start_date"],
                      stats["cpu"], stats["memory"], stats["disk"], stats["host"], stats["universe"], stats["exe"],
-                     stats["transfer"]))
-                c.execute("""SELECT id FROM jobs WHERE global_id = %s""", (stats["global"]))
+                     stats["transfer"]])
+                c.execute("""SELECT id FROM jobs WHERE global_id = %s""", [stats["global"]])
                 stats["id"] = c.fetchone()
 
             # Insert the job statistics
             c.execute(
                 """INSERT INTO job_stats (id, datetime, cpu_load, memory_usage, disk_usage) VALUES (%s, %s, %s,
-                %s, %s)""", (stats["id"]["id"], stats["datetime"], stats["cpu_load"], stats["memory_usage"],
-                             stats["disk_usage"]))
+                %s, %s)""", [stats["id"]["id"], stats["datetime"], stats["cpu_load"], stats["memory_usage"],
+                             stats["disk_usage"]])
 
 
 if __name__ == '__main__':
