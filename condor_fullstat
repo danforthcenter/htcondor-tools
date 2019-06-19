@@ -37,7 +37,8 @@ def main():
 
     # condor_q parameters
     cmd = ["condor_q", "-allusers", "-autoformat:t", "ClusterId", "ProcId", "Owner", "RemoteHost", "RequestCpus",
-           "RequestMemory", "MemoryUsage", "RequestDisk", "DiskUsage", "JobStartDate", "ServerTime", "Cmd"]
+           "RequestMemory", "MemoryUsage", "RequestDisk", "DiskUsage", "JobStartDate", "ServerTime", "Cmd",
+           "JobDescription"]
 
     machine = ["condor_status", "-autoformat:t", "JobId", "LoadAvg"]
 
@@ -138,8 +139,9 @@ def main():
 
             # Get the command name, excluding path
             job = os.path.basename(cols[11])
+            job_type = cols[12]
             # Rename interactive jobs
-            if job == "sleep":
+            if job_type == "interactive job":
                 job = "(interactive)"
 
             # Append the new row to the output table
