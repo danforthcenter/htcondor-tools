@@ -70,6 +70,7 @@ def main():
                 identity = identity.replace('"', "")
                 # Remove the user domain
                 group_user = identity.replace("@ddpsc.org", "")
+                group_user = group_user.replace("@datasci.danforthcenter.org", "")
                 # Remove "nice-user"
                 group_user = group_user.replace("nice-user.", "")
                 group, user = "None", "None"
