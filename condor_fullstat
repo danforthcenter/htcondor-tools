@@ -185,7 +185,7 @@ def main():
         print("\n".join(map(str, rows)) + "\n\n")
 
     # Display server resource overall usage
-    resources = ["condor_status", "-autoformat:t", "Machine", "Cpus", "Memory", "Disk"]
+    resources = ["condor_status", "-autoformat:t", "Machine", "Activity", "Cpus", "Memory", "Disk"]
 
     # Output table headers
     resource_headers = ["Hostname", "CPUs", "Memory", "Scratch Disk"]
