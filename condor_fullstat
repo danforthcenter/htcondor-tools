@@ -188,7 +188,8 @@ def main():
     resources = ["condor_status", "-autoformat:t", "Machine", "Activity", "Cpus", "Memory", "Disk"]
 
     # Output table headers
-    resource_headers = ["Hostname", "CPUs", "Memory", "Scratch Disk"]
+    resource_headers = ["Hostname", "CPUs In-Use", "CPUs Total", "Memory (GB) In-Use", "Memory (GB) Total",
+                        "Scratch Disk (GB) In-Use", "Scratch Disk (GB) Total"]
 
     # Run resources command
     ps = Popen(resources, stdout=PIPE, encoding="utf-8")
@@ -248,13 +249,12 @@ def main():
         disk_total = servers[server]["total"]["disk"] / 1024**2
         disk_used = servers[server]["reserved"]["disk"] / 1024**2
 
-        resource_table.append([server, str(cpus_used) + "/" + str(cpus_total),
-                               str(int(mem_used + 0.5)) + "GB/" + str(int(mem_total + 0.5)) + "GB",
-                               str(int(disk_used + 0.5)) + "GB/" + str(int(disk_total + 0.5)) + "GB"])
+        resource_table.append([server, str(cpus_used), str(cpus_total), str(int(mem_used + 0.5)),
+                               str(int(mem_total + 0.5)), str(int(disk_used + 0.5)), str(int(disk_total + 0.5))])
     tab_out = tabulate(resource_table, headers=resource_headers)
     rows = tab_out.split("\n")
     rows.append(rows[1])
-    rows.append("CPU, memory, and disk resources are shown as in-use over total resources.")
+    # rows.append("CPU, memory, and disk resources are shown as in-use over total resources.")
     print("\n".join(map(str, rows)) + "\n")
 
 
