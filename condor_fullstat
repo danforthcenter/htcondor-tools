@@ -188,8 +188,8 @@ def main():
     resources = ["condor_status", "-autoformat:t", "Machine", "Activity", "Cpus", "Memory", "Disk"]
 
     # Output table headers
-    resource_headers = ["Hostname", "CPUs In-Use", "CPUs Total", "Memory (GB) In-Use", "Memory (GB) Total",
-                        "Scratch Disk (GB) In-Use", "Scratch Disk (GB) Total"]
+    resource_headers = ["Hostname", "CPUs", "Total CPUs", "Memory (GB)", "Total Memory (GB)",
+                        "Scratch Disk (GB)", "Total Scratch Disk (GB)"]
 
     # Run resources command
     ps = Popen(resources, stdout=PIPE, encoding="utf-8")
@@ -254,7 +254,7 @@ def main():
     tab_out = tabulate(resource_table, headers=resource_headers)
     rows = tab_out.split("\n")
     rows.append(rows[1])
-    # rows.append("CPU, memory, and disk resources are shown as in-use over total resources.")
+    rows.append("In-use CPU, memory, and disk resources are shown along with total capacity.")
     print("\n".join(map(str, rows)) + "\n")
 
 
