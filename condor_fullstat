@@ -204,39 +204,40 @@ def main():
     for row in table:
         # Remove the newline if any
         row = row.rstrip("\n")
-        # Split up the columns on tab characters
-        cols = row.split("\t")
-        hostname = cols[0]
-        status = cols[1]
-        cpus = int(cols[2])
-        memory = int(cols[3])
-        disk = int(cols[4])
-        # Code status
-        if status != "Idle":
-            status = "Consumed"
-        if hostname in servers:
-            # Total resources
-            servers[hostname]["total"]["cpus"] += cpus
-            servers[hostname]["total"]["memory"] += memory
-            servers[hostname]["total"]["disk"] += disk
-            # In-use resources
-            if status == "Consumed":
-                servers[hostname]["reserved"]["cpus"] += cpus
-                servers[hostname]["reserved"]["memory"] += memory
-                servers[hostname]["reserved"]["disk"] += disk
-        else:
-            # Initialize server
-            servers[hostname] = {"total": {"cpus": 0, "memory": 0, "disk": 0},
-                                 "reserved": {"cpus": 0, "memory": 0, "disk": 0}}
-            # Total resources
-            servers[hostname]["total"]["cpus"] += cpus
-            servers[hostname]["total"]["memory"] += memory
-            servers[hostname]["total"]["disk"] += disk
-            # In-use resources
-            if status == "Consumed":
-                servers[hostname]["reserved"]["cpus"] += cpus
-                servers[hostname]["reserved"]["memory"] += memory
-                servers[hostname]["reserved"]["disk"] += disk
+        if len(row) > 0:
+            # Split up the columns on tab characters
+            cols = row.split("\t")
+            hostname = cols[0]
+            status = cols[1]
+            cpus = int(cols[2])
+            memory = int(cols[3])
+            disk = int(cols[4])
+            # Code status
+            if status != "Idle":
+                status = "Consumed"
+            if hostname in servers:
+                # Total resources
+                servers[hostname]["total"]["cpus"] += cpus
+                servers[hostname]["total"]["memory"] += memory
+                servers[hostname]["total"]["disk"] += disk
+                # In-use resources
+                if status == "Consumed":
+                    servers[hostname]["reserved"]["cpus"] += cpus
+                    servers[hostname]["reserved"]["memory"] += memory
+                    servers[hostname]["reserved"]["disk"] += disk
+            else:
+                # Initialize server
+                servers[hostname] = {"total": {"cpus": 0, "memory": 0, "disk": 0},
+                                     "reserved": {"cpus": 0, "memory": 0, "disk": 0}}
+                # Total resources
+                servers[hostname]["total"]["cpus"] += cpus
+                servers[hostname]["total"]["memory"] += memory
+                servers[hostname]["total"]["disk"] += disk
+                # In-use resources
+                if status == "Consumed":
+                    servers[hostname]["reserved"]["cpus"] += cpus
+                    servers[hostname]["reserved"]["memory"] += memory
+                    servers[hostname]["reserved"]["disk"] += disk
 
     resource_table = []
     for server in servers:
