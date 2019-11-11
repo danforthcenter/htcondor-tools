@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/local/bin/python3
 import sys
 import os
 from subprocess import Popen, PIPE
@@ -47,7 +47,7 @@ def main():
 
     # Run condor_status to get load averages per job
     loads = {}
-    ps = Popen(machine, stdout=PIPE)
+    ps = Popen(machine, stdout=PIPE, encoding="utf-8")
     stdout = ps.communicate()
 
     # Process condor_q output
@@ -182,8 +182,79 @@ def main():
         rows = tab_out.split("\n")
         rows.append(rows[1])
         rows.append("CPU, memory, and disk resources are shown as actual usage over requested resources.")
-        print("\n".join(map(str, rows)) + "\n")
+        print("\n".join(map(str, rows)) + "\n\n")
 
+    # Display server resource overall usage
+    resources = ["condor_status", "-autoformat:t", "Machine", "Cpus", "Memory", "Disk"]
+
+    # Output table headers
+    resource_headers = ["Hostname", "CPUs", "Memory", "Scratch Disk"]
+
+    # Run resources command
+    ps = Popen(resources, stdout=PIPE)
+    stdout = ps.communicate()
+
+    # Process condor_q output
+    raw = stdout[0]
+    table = raw.split("\n")
+
+    # Collect data for each server
+    servers = {}
+    # For each row in the output
+    for row in table:
+        # Remove the newline if any
+        row = row.rstrip("\n")
+        # Split up the columns on tab characters
+        cols = row.split("\t")
+        hostname = cols[0]
+        status = cols[1]
+        cpus = int(cols[2])
+        memory = int(cols[3])
+        disk = int(cols[4])
+        # Code status
+        if status != "Idle":
+            status = "Consumed"
+        if hostname in servers:
+            # Total resources
+            servers[hostname]["total"]["cpus"] += cpus
+            servers[hostname]["total"]["memory"] += memory
+            servers[hostname]["total"]["disk"] += disk
+            # In-use resources
+            if status == "Consumed":
+                servers[hostname]["reserved"]["cpus"] += cpus
+                servers[hostname]["reserved"]["memory"] += memory
+                servers[hostname]["reserved"]["disk"] += disk
+        else:
+            # Initialize server
+            servers[hostname] = {"total": {"cpus": 0, "memory": 0, "disk": 0},
+                                 "reserved": {"cpus": 0, "memory": 0, "disk": 0}}
+            # Total resources
+            servers[hostname]["total"]["cpus"] += cpus
+            servers[hostname]["total"]["memory"] += memory
+            servers[hostname]["total"]["disk"] += disk
+            # In-use resources
+            if status == "Consumed":
+                servers[hostname]["reserved"]["cpus"] += cpus
+                servers[hostname]["reserved"]["memory"] += memory
+                servers[hostname]["reserved"]["disk"] += disk
+
+    resource_table = []
+    for server in servers:
+        cpus_total = servers[server]["total"]["cpus"]
+        cpus_used = servers[server]["reserved"]["cpus"]
+        mem_total = servers[server]["total"]["memory"] / 1024
+        mem_used = servers[server]["reserved"]["memory"] / 1024
+        disk_total = servers[server]["total"]["disk"] / 1024**2
+        disk_used = servers[server]["reserved"]["disk"] / 1024**2
+
+        resource_table.append([server, str(cpus_used) + "/" + str(cpus_total),
+                               str(int(mem_used + 0.5)) + "GB/" + str(int(mem_total + 0.5)) + "GB",
+                               str(int(disk_used + 0.5)) + "GB/" + str(int(disk_total + 0.5)) + "GB"])
+    tab_out = tabulate(resource_table, headers=resource_headers)
+    rows = tab_out.split("\n")
+    rows.append(rows[1])
+    rows.append("CPU, memory, and disk resources are shown as in-use over total resources.")
+    print("\n".join(map(str, rows)) + "\n")
 
 
 def assign_color(ratio):
