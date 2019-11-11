@@ -67,7 +67,7 @@ def main():
             loads[job_id] = loadave
 
     # Run condor_q
-    ps = Popen(cmd, stdout=PIPE)
+    ps = Popen(cmd, stdout=PIPE, encoding="utf-8")
     stdout = ps.communicate()
 
     # Process condor_q output
@@ -191,7 +191,7 @@ def main():
     resource_headers = ["Hostname", "CPUs", "Memory", "Scratch Disk"]
 
     # Run resources command
-    ps = Popen(resources, stdout=PIPE)
+    ps = Popen(resources, stdout=PIPE, encoding="utf-8")
     stdout = ps.communicate()
 
     # Process condor_q output
