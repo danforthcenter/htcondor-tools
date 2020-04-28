@@ -188,8 +188,7 @@ def main():
     resources = ["condor_status", "-autoformat:t", "Machine", "Activity", "Cpus", "Memory", "Disk"]
 
     # Output table headers
-    resource_headers = ["Hostname", "CPUs", "Total CPUs", "Memory (GB)", "Total Memory (GB)",
-                        "Scratch Disk (GB)", "Total Scratch Disk (GB)"]
+    resource_headers = ["Hostname", "CPUs (available)", "Memory (available)", "Scratch Disk (available)"]
 
     # Run resources command
     ps = Popen(resources, stdout=PIPE, encoding="utf-8")
@@ -244,17 +243,21 @@ def main():
     for server in servers:
         cpus_total = servers[server]["total"]["cpus"]
         cpus_used = servers[server]["reserved"]["cpus"]
+        cpus_avail = cpus_total - cpus_used
         mem_total = servers[server]["total"]["memory"] / 1024
         mem_used = servers[server]["reserved"]["memory"] / 1024
+        mem_avail = mem_total - mem_used
         disk_total = servers[server]["total"]["disk"] / 1024**2
         disk_used = servers[server]["reserved"]["disk"] / 1024**2
+        disk_avail = disk_total - disk_used
 
-        resource_table.append([server, str(cpus_used), str(cpus_total), str(int(mem_used + 0.5)),
-                               str(int(mem_total + 0.5)), str(int(disk_used + 0.5)), str(int(disk_total + 0.5))])
+        resource_table.append([server, str(cpus_total) + " (" + str(cpus_avail) + ")",
+                               str(int(mem_total + 0.5)) + " (" + str(int(mem_avail + 0.5)) + ")",
+                               str(int(disk_total + 0.5)) + " (" + str(int(disk_used + 0.5)) + ")"])
     tab_out = tabulate(resource_table, headers=resource_headers)
     rows = tab_out.split("\n")
     rows.append(rows[1])
-    rows.append("In-use CPU, memory, and disk resources are shown along with total capacity.")
+    rows.append("Memory and scratch disk are shown in GB.")
     print("\n".join(map(str, rows)) + "\n")
 
 
