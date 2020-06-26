@@ -1,0 +1,76 @@
+#!/usr/local/bin/python3
+
+import os
+import argparse
+from dask_jobqueue import HTCondorCluster
+from dask.distributed import Client, progress
+from subprocess import call
+
+
+def options():
+    """Parse command-line options."""
+    parser = argparse.ArgumentParser(description='HTCondor Workflow - fastq-dump.')
+    # output = parser.add_argument_group('OUTPUT')
+    parser.add_argument("accessions", metavar="SRR", type=str, nargs="+", help="One or more SRA SRR record accessions.")
+    parser.add_argument("-O", "--outdir", default=".", type=str,
+                        help="Output directory, default is working directory '.'")
+    parser.add_argument("--gzip", action="store_true", help="Compress output using gzip")
+    parser.add_argument("--split-files", action="store_true",
+                        help="Dump each read into separate file. Files will receive suffix corresponding to read number")
+    # formatting = parser.add_argument_group('FORMATTING')
+    parser.add_argument("-I", "--readids", action="store_true",
+                        help="Append read id after spot id as 'accession.spot.readid' on defline")
+    args = parser.parse_args()
+
+    if not os.path.exists(args.outdir):
+        raise IOError(f"Output directory {args.outdir} does not exist!")
+
+    return args
+
+
+def run_fastqdump(job):
+    """Run fastq-dump."""
+    call(job)
+
+
+def main():
+    """Main program."""
+    # Parse command-line options
+    args = options()
+
+    # Configure HTCondor cluster
+    cluster = HTCondorCluster(
+        cores=1,
+        memory="1GB",
+        disk="1GB",
+        local_directory="$_CONDOR_SCRATCH_DIR",
+        job_name="fastq-dump"
+    )
+
+    # Configure number of workers
+    max_workers = 4
+    if len(args.accessions) < 4:
+        max_workers = len(args.accessions)
+    cluster.scale(jobs=max_workers)
+    client = Client(cluster)
+
+    # Create basic job
+    job = ["/bioinfo/bin/fastq-dump", "--outdir", args.outdir]
+    if args.gzip:
+        job.append("--gzip")
+    if args.split_files:
+        job.append("--split-files")
+    if args.readids:
+        job.append("--readids")
+
+    # List of job futures
+    processed = []
+    for srr in args.accessions:
+        # Submit each job
+        processed.append(client.submit(run_fastqdump, job + [srr]))
+    # Watch jobs and print progress bar
+    progress(processed)
+
+
+if __name__ == "__main__":
+    main()
