@@ -48,7 +48,8 @@ def main():
         memory=f"{args.memory}GB",
         disk="1GB",
         local_directory="$_CONDOR_SCRATCH_DIR",
-        job_name="gatk"
+        job_name="gatk",
+        log_directory="logs"
     )
 
     contigs = []
