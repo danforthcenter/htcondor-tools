@@ -49,7 +49,8 @@ def main():
         disk="1GB",
         local_directory="$_CONDOR_SCRATCH_DIR",
         job_name="gatk",
-        log_directory="logs"
+        log_directory="logs",
+        scheduler_options={"requirements": "TARGET.has_avx"}
     )
 
     contigs = []
