@@ -9,8 +9,7 @@ from subprocess import call
 
 def options():
     """Parse command-line options."""
-    parser = argparse.ArgumentParser(description='HTCondor Workflow - GATK HaplotypeCaller.',
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(description='HTCondor Workflow - GATK HaplotypeCaller.')
     parser.add_argument("-g", "--gatk", type=str, help="GATK program path.", required=True)
     parser.add_argument("-i", "--infile", type=str, help="Input file containing contig names.", required=True)
     parser.add_argument("-f", "--fasta", type=str, help="Input reference genome FASTA file.", required=True)
