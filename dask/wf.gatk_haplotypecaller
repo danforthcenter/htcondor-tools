@@ -51,10 +51,17 @@ def main():
         job_name="gatk"
     )
 
+    contigs = []
+    fh = open(args.infile, "r")
+    for contig in fh:
+        contig = contig.rstrip("\n")
+        contigs.append(contig)
+    fh.close()
+
     # Configure number of workers
     max_workers = 200
-    if len(args.accessions) < 200:
-        max_workers = len(args.accessions)
+    if len(contigs) < 200:
+        max_workers = len(contigs)
     cluster.scale(jobs=max_workers)
     client = Client(cluster)
 
@@ -64,9 +71,7 @@ def main():
 
     # List of job futures
     processed = []
-    fh = open(args.infile, "r")
-    for contig in fh:
-        contig = contig.rstrip("\n")
+    for contig in contigs:
         # Submit each job
         processed.append(client.submit(run_gatk, job + ["-L", contig,
                                                         "-O", os.path.join(args.outdir,
