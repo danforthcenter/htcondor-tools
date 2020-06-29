@@ -1,0 +1,79 @@
+#!/usr/bin/env python
+
+import os
+import argparse
+from dask_jobqueue import HTCondorCluster
+from dask.distributed import Client, progress
+from subprocess import call
+
+
+def options():
+    """Parse command-line options."""
+    parser = argparse.ArgumentParser(description='HTCondor Workflow - GATK HaplotypeCaller.')
+    parser.add_argument("-g", "--gatk", type=str, help="GATK program path.", required=True)
+    parser.add_argument("-i", "--infile", type=str, help="Input file containing contig names.", required=True)
+    parser.add_argument("-f", "--fasta", type=str, help="Input reference genome FASTA file.", required=True)
+    parser.add_argument("-b", "--bam", type=str, help="Input BAM file.", required=True)
+    parser.add_argument("-o", "--outdir", type=str, help="Output directory.", required=True)
+    parser.add_argument("-p", "--prefix", type=str, help="Output file prefix.", required=True)
+    parser.add_argument("-t", "--threads", type=int, help="Parallel threads/CPUs per job.", default=4)
+    parser.add_argument("-m", "--memory", type=int, help="Memory in GB per job.", default=4)
+    args = parser.parse_args()
+
+    if not os.path.exists(args.infile):
+        raise IOError(f"Input file of contig names {args.infile} does not exist!")
+    if not os.path.exists(args.fasta):
+        raise IOError(f"Input FASTA file {args.fasta} does not exist!")
+    if not os.path.exists(args.bam):
+        raise IOError(f"Input BAM file {args.bam} does not exist!")
+    if not os.path.exists(args.outdir):
+        raise IOError(f"Output directory {args.outdir} does not exist!")
+
+    return args
+
+
+def run_gatk(job):
+    """Run GATK."""
+    call(job)
+
+
+def main():
+    """Main program."""
+    # Parse command-line options
+    args = options()
+
+    # Configure HTCondor cluster
+    cluster = HTCondorCluster(
+        cores=args.threads,
+        memory=f"{args.memory}GB",
+        disk="1GB",
+        local_directory="$_CONDOR_SCRATCH_DIR",
+        job_name="gatk"
+    )
+
+    # Configure number of workers
+    max_workers = 200
+    if len(args.accessions) < 200:
+        max_workers = len(args.accessions)
+    cluster.scale(jobs=max_workers)
+    client = Client(cluster)
+
+    # Create basic job
+    job = [args.gatk, "HaplotypeCaller", "--java-options",
+           f'"-Xmx{args.memory}G -XX:ParallelGCThreads={args.threads}"', "-R", args.fasta, "-I", args.bam]
+
+    # List of job futures
+    processed = []
+    fh = open(args.infile, "r")
+    for contig in fh:
+        contig = contig.rstrip("\n")
+        # Submit each job
+        processed.append(client.submit(run_gatk, job + ["-L", contig,
+                                                        "-O", os.path.join(args.outdir,
+                                                                           f"{args.prefix}_{contig}.vcf")]))
+    # Watch jobs and print progress bar
+    progress(processed)
+
+
+if __name__ == "__main__":
+    main()
