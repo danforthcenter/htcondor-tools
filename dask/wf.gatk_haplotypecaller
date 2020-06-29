@@ -68,7 +68,7 @@ def main():
 
     # Create basic job
     job = [args.gatk, "HaplotypeCaller", "--java-options",
-           f'"-Xmx{args.memory}G -XX:ParallelGCThreads={args.threads}"', "-R", args.fasta, "-I", args.bam]
+           f"-Xmx{args.memory}G -XX:ParallelGCThreads={args.threads}", "-R", args.fasta, "-I", args.bam]
 
     # List of job futures
     processed = []
