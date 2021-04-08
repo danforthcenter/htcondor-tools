@@ -14,7 +14,7 @@ def options():
     parser.add_argument("-i", "--infile", type=str, help="Input file containing contig names.", required=True)
     parser.add_argument("-f", "--fasta", type=str, help="Input reference genome FASTA file.", required=True)
     parser.add_argument("-b", "--bam", type=str, help="Input BAM file.", required=True)
-    parser.add_argument("-e", "--gvcf", type=bool, help="Emit outputs in GVCF format (default is VCF).", action="store_true")
+    parser.add_argument("-e", "--gvcf", help="Emit outputs in GVCF format (default is VCF).", action="store_true")
     parser.add_argument("-o", "--outdir", type=str, help="Output directory.", required=True)
     parser.add_argument("-p", "--prefix", type=str, help="Output file prefix.", required=True)
     parser.add_argument("-t", "--threads", type=int, help="Parallel threads/CPUs per job.", default=4)
