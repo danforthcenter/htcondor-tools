@@ -14,6 +14,7 @@ def options():
     parser.add_argument("-i", "--infile", type=str, help="Input file containing contig names.", required=True)
     parser.add_argument("-f", "--fasta", type=str, help="Input reference genome FASTA file.", required=True)
     parser.add_argument("-b", "--bam", type=str, help="Input BAM file.", required=True)
+    parser.add_argument("-e", "--gvcf", type=bool, help="Emit outputs in GVCF format (default is VCF).", action="store_true")
     parser.add_argument("-o", "--outdir", type=str, help="Output directory.", required=True)
     parser.add_argument("-p", "--prefix", type=str, help="Output file prefix.", required=True)
     parser.add_argument("-t", "--threads", type=int, help="Parallel threads/CPUs per job.", default=4)
@@ -68,8 +69,12 @@ def main():
     client = Client(cluster)
 
     # Create basic job
+    ext = "vcf"
     job = [args.gatk, "HaplotypeCaller", "--java-options",
            f"-Xmx{args.memory}G -XX:ParallelGCThreads={args.threads}", "-R", args.fasta, "-I", args.bam]
+    if args.gvcf:
+        job = job + ["-ERC", "GVCF"]
+        ext = "gvcf"
 
     # List of job futures
     processed = []
@@ -77,7 +82,7 @@ def main():
         # Submit each job
         processed.append(client.submit(run_gatk, job + ["-L", contig,
                                                         "-O", os.path.join(args.outdir,
-                                                                           f"{args.prefix}_{contig}.vcf")]))
+                                                                           f"{args.prefix}_{contig}.{ext}")]))
     # Watch jobs and print progress bar
     progress(processed)
 
