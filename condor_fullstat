@@ -252,8 +252,8 @@ def main():
         disk_avail = disk_total - disk_used
 
         resource_table.append([server, str(cpus_total) + " (" + str(cpus_avail) + ")",
-                               str(int(mem_total + 0.5)) + " (" + str(int(mem_avail + 0.5)) + ")",
-                               str(int(disk_total + 0.5)) + " (" + str(int(disk_used + 0.5)) + ")"])
+                               str(int(mem_total - 0.5)) + " (" + str(int(mem_avail - 0.5)) + ")",
+                               str(int(disk_total - 0.5)) + " (" + str(int(disk_used - 0.5)) + ")"])
     tab_out = tabulate(resource_table, headers=resource_headers)
     rows = tab_out.split("\n")
     rows.append(rows[1])
