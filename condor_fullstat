@@ -252,8 +252,12 @@ def main():
                     servers[hostname]["reserved"]["memory"] += memory
                     servers[hostname]["reserved"]["disk"] += disk
 
-    colorize = sys.stdout.isatty() and not args.tab
-    resource_table = []
+    # Collect raw used/total values per server first so bar prefixes can be
+    # padded to the actual max width needed in each column (tabulate strips
+    # leading/trailing whitespace from cell content, so alignment can only be
+    # achieved with *trailing* padding sized to the real data, not a guessed
+    # fixed-width, space-padded prefix).
+    raw_resources = []
     for server in servers:
         cpus_total = servers[server]["total"]["cpus"]
         cpus_used = servers[server]["reserved"]["cpus"]
@@ -261,7 +265,19 @@ def main():
         mem_used = servers[server]["reserved"]["memory"] / 1024
         disk_total = servers[server]["total"]["disk"] / 1024**2
         disk_used = servers[server]["reserved"]["disk"] / 1024**2
+        raw_resources.append((server, cpus_used, cpus_total, mem_used, mem_total, disk_used, disk_total))
 
+    def fraction_width(pairs):
+        widths = [len("{0}/{1}".format(int(used), int(total))) for used, total in pairs]
+        return max(widths, default=1)
+
+    cpus_width = fraction_width([(r[1], r[2]) for r in raw_resources])
+    mem_width = fraction_width([(r[3], r[4]) for r in raw_resources])
+    disk_width = fraction_width([(r[5], r[6]) for r in raw_resources])
+
+    colorize = sys.stdout.isatty() and not args.tab
+    resource_table = []
+    for server, cpus_used, cpus_total, mem_used, mem_total, disk_used, disk_total in raw_resources:
         if args.tab:
             cpus_pct = (cpus_used / cpus_total * 100) if cpus_total else 0.0
             mem_pct = (mem_used / mem_total * 100) if mem_total else 0.0
@@ -272,9 +288,9 @@ def main():
                                    "{0:.1f}".format(disk_total), "{0:.1f}".format(disk_pct)])
         else:
             resource_table.append([server,
-                                   render_bar(cpus_used, cpus_total, colorize=colorize),
-                                   render_bar(mem_used, mem_total, colorize=colorize),
-                                   render_bar(disk_used, disk_total, colorize=colorize)])
+                                   render_bar(cpus_used, cpus_total, cpus_width, colorize=colorize),
+                                   render_bar(mem_used, mem_total, mem_width, colorize=colorize),
+                                   render_bar(disk_used, disk_total, disk_width, colorize=colorize)])
 
     if args.tab:
         print("\t".join(["Hostname", "CPUs Used", "CPUs Total", "CPUs %",
@@ -290,14 +306,21 @@ def main():
         print("\n".join(map(str, rows)) + "\n")
 
 
-def render_bar(used, total, width=20, colorize=True):
-    """Render a 'used/total [bar] pct%' string, colored by utilization percent."""
+def render_bar(used, total, prefix_width=1, width=20, colorize=True):
+    """Render a 'used/total [bar] pct%' string, colored by utilization percent.
+
+    The used/total prefix is left-justified (trailing-space padded) rather
+    than space-padded on the left: tabulate strips leading/trailing
+    whitespace from each cell, so leading padding (which varies with the
+    number of digits) would silently be stripped and break alignment.
+    """
     if total <= 0:
-        return "n/a".ljust(width + 9)
+        return "n/a".ljust(prefix_width + 1 + width + 10)
     percent = max(0.0, (used / total) * 100)
     filled = max(0, min(width, round((percent / 100) * width)))
     bar = "█" * int(filled) + "░" * (width - int(filled))
-    text = "{0}/{1} [{2}] {3:5.1f}%".format(int(used), int(total), bar, percent)
+    prefix = "{0}/{1}".format(int(used), int(total)).ljust(prefix_width)
+    text = "{0} [{1}] {2:5.1f}%".format(prefix, bar, percent)
     if not colorize:
         return text
 
