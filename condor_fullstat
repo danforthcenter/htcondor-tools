@@ -36,11 +36,11 @@ def main():
     args = options()
 
     # condor_q parameters
-    cmd = ["condor_q", "-allusers", "-autoformat:t", "ClusterId", "ProcId", "Owner", "RemoteHost", "RequestCpus",
-           "RequestMemory", "MemoryUsage", "RequestDisk", "DiskUsage", "JobStartDate", "ServerTime", "Cmd",
-           "JobDescription"]
+    cmd = ["condor_q", "-allusers", "-global", "-autoformat:t", "ClusterId", "ProcId", "Owner", "RemoteHost",
+           "RequestCpus", "RequestMemory", "MemoryUsage", "RequestDisk", "DiskUsage", "JobStartDate", "ServerTime",
+           "Cmd", "JobDescription", "GlobalJobId"]
 
-    machine = ["condor_status", "-autoformat:t", "JobId", "LoadAvg"]
+    machine = ["condor_status", "-autoformat:t", "GlobalJobId", "LoadAvg"]
 
     # Output table headers
     headers = ["Cluster", "Process", "Owner", "Host", "CPUs", "Memory (GB)", "Disk (GB)", "Run Time", "Cmd"]
@@ -55,16 +55,28 @@ def main():
     table = raw.split("\n")
 
     # For each row in the output
+    claimed_slots = 0
     for row in table:
         # Remove the newline if any
         row = row.rstrip("\n")
         # Split up the columns on tab characters
         cols = row.split("\t")
         # Ignore blank lines and machines that have no job
-        if len(cols) > 1 and cols[0] != 'undefined':
-            job_id = cols[0]
-            loadave = cols[1]
-            loads[job_id] = loadave
+        if len(cols) > 1 and cols[1] != 'undefined':
+            claimed_slots += 1
+            # Join on GlobalJobId (unique pool-wide) rather than ClusterId.ProcId
+            # (unique only per-schedd), since multiple schedulers can reuse the
+            # same ClusterId.ProcId for different jobs.
+            if cols[0] not in ('undefined', ''):
+                job_id = cols[0]
+                loadave = cols[1]
+                loads[job_id] = loadave
+
+    # Warn (without silently falling back to the collision-prone ClusterId.ProcId
+    # key) if this pool's condor_status doesn't report GlobalJobId on claimed slots.
+    if claimed_slots > 0 and not loads:
+        print("warning: condor_status did not report GlobalJobId; load averages may not "
+              "be attributed correctly across schedulers", file=sys.stderr)
 
     # Run condor_q
     ps = Popen(cmd, stdout=PIPE, encoding="utf-8")
@@ -88,8 +100,9 @@ def main():
             for i, value in enumerate(cols):
                 if value == 'undefined':
                     cols[i] = 0
-            # Cluster ID + Job ID
-            job_id = cols[0] + "." + cols[1]
+            # Join key for the loads dict: GlobalJobId is unique pool-wide, unlike
+            # ClusterId.ProcId which can collide across multiple schedulers.
+            job_id = cols[13]
             cluster = cols[0]
             process = cols[1]
             # Username
@@ -188,7 +201,7 @@ def main():
     resources = ["condor_status", "-autoformat:t", "Machine", "Activity", "Cpus", "Memory", "Disk"]
 
     # Output table headers
-    resource_headers = ["Hostname", "CPUs (available)", "Memory (available)", "Scratch Disk (available)"]
+    resource_headers = ["Hostname", "CPUs", "Memory (GB)", "Scratch Disk (GB)"]
 
     # Run resources command
     ps = Popen(resources, stdout=PIPE, encoding="utf-8")
@@ -239,26 +252,62 @@ def main():
                     servers[hostname]["reserved"]["memory"] += memory
                     servers[hostname]["reserved"]["disk"] += disk
 
+    colorize = sys.stdout.isatty() and not args.tab
     resource_table = []
     for server in servers:
         cpus_total = servers[server]["total"]["cpus"]
         cpus_used = servers[server]["reserved"]["cpus"]
-        cpus_avail = cpus_total - cpus_used
         mem_total = servers[server]["total"]["memory"] / 1024
         mem_used = servers[server]["reserved"]["memory"] / 1024
-        mem_avail = mem_total - mem_used
         disk_total = servers[server]["total"]["disk"] / 1024**2
         disk_used = servers[server]["reserved"]["disk"] / 1024**2
-        disk_avail = disk_total - disk_used
 
-        resource_table.append([server, str(cpus_total) + " (" + str(cpus_avail) + ")",
-                               str(int(mem_total - 0.5)) + " (" + str(int(mem_avail - 0.5)) + ")",
-                               str(int(disk_total - 0.5)) + " (" + str(int(disk_used - 0.5)) + ")"])
-    tab_out = tabulate(resource_table, headers=resource_headers)
-    rows = tab_out.split("\n")
-    rows.append(rows[1])
-    rows.append("Memory and scratch disk are shown in GB.")
-    print("\n".join(map(str, rows)) + "\n")
+        if args.tab:
+            cpus_pct = (cpus_used / cpus_total * 100) if cpus_total else 0.0
+            mem_pct = (mem_used / mem_total * 100) if mem_total else 0.0
+            disk_pct = (disk_used / disk_total * 100) if disk_total else 0.0
+            resource_table.append([server, cpus_used, cpus_total, "{0:.1f}".format(cpus_pct),
+                                   "{0:.1f}".format(mem_used), "{0:.1f}".format(mem_total),
+                                   "{0:.1f}".format(mem_pct), "{0:.1f}".format(disk_used),
+                                   "{0:.1f}".format(disk_total), "{0:.1f}".format(disk_pct)])
+        else:
+            resource_table.append([server,
+                                   render_bar(cpus_used, cpus_total, colorize=colorize),
+                                   render_bar(mem_used, mem_total, colorize=colorize),
+                                   render_bar(disk_used, disk_total, colorize=colorize)])
+
+    if args.tab:
+        print("\t".join(["Hostname", "CPUs Used", "CPUs Total", "CPUs %",
+                         "Memory Used (GB)", "Memory Total (GB)", "Memory %",
+                         "Disk Used (GB)", "Disk Total (GB)", "Disk %"]))
+        for row in resource_table:
+            print("\t".join(map(str, row)))
+    else:
+        tab_out = tabulate(resource_table, headers=resource_headers)
+        rows = tab_out.split("\n")
+        rows.append(rows[1])
+        rows.append("Memory and scratch disk are shown in GB.")
+        print("\n".join(map(str, rows)) + "\n")
+
+
+def render_bar(used, total, width=20, colorize=True):
+    """Render a 'used/total [bar] pct%' string, colored by utilization percent."""
+    if total <= 0:
+        return "n/a".ljust(width + 9)
+    percent = max(0.0, (used / total) * 100)
+    filled = max(0, min(width, round((percent / 100) * width)))
+    bar = "█" * int(filled) + "░" * (width - int(filled))
+    text = "{0}/{1} [{2}] {3:5.1f}%".format(int(used), int(total), bar, percent)
+    if not colorize:
+        return text
+
+    from colors import color
+    if percent >= 90:
+        return color(text, fg=1)    # red
+    elif percent >= 70:
+        return color(text, fg=9)    # orange
+    else:
+        return color(text, fg=10)   # green
 
 
 def assign_color(ratio):
